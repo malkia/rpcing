@@ -34,15 +34,53 @@ public:
     printf("failed with %d, %s\n", status.error_code(), status.error_message().c_str() );
     return std::string();
   }
+
+  void CommandStream( size_t batchSize )
+  {
+      grpc::ClientContext clientContext;
+      service::CommandRequest commandRequest;
+      service::CommandResponse commandResponse;
+
+      auto stream = m_stub->CommandStream( &clientContext );
+      for( size_t index = 0; index < batchSize; index++ )
+      {
+        if( !stream->Write(commandRequest) )
+          printf( "W! " );
+
+        if( !stream->Read(&commandResponse) )
+          printf( "R! " );
+      }
+
+      if( !stream->WritesDone() )
+         printf( "\nWD!\n" );
+      auto status = stream->Finish();
+      if( !status.ok() )
+      {
+        printf( "CommandStream error: %d, %s\n", status.error_code(), status.error_message().c_str() );
+      }
+  }
 };
 
 std::string toastedString{ "Toasted!" };
 
 class CommandService : public service::MainControl::Service {
-  grpc::Status Command( grpc::ServerContext* context, const service::CommandRequest *request, service::CommandResponse *response )
+  grpc::Status Command( grpc::ServerContext* context, const service::CommandRequest *request, service::CommandResponse *response ) override
   {
      //context->set_compression_algorithm( GRPC_COMPRESS_DEFLATE );
      response->set_result( toastedString );
+     return grpc::Status::OK;
+  }
+
+  grpc::Status CommandStream( grpc::ServerContext* context, grpc::ServerReaderWriter<service::CommandResponse, service::CommandRequest>* stream ) override
+  {
+     service::CommandRequest commandRequest;
+     service::CommandResponse commandResponse;
+     while( stream->Read(&commandRequest) )
+     {
+       //commandResponse.set_result( toastedString );
+       if( !stream->Write(commandResponse) )
+         printf("w! !");
+     }
      return grpc::Status::OK;
   }
 };
@@ -74,13 +112,17 @@ int main( int argc, const char* argv[] )
   //int counter = 0;
   std::string testString{ "test" };
   auto t1 = std::chrono::steady_clock::now();
+#if 1
+  commandClient.CommandStream(120000);
+#else
   for( int i=0; i<8192; i++ )
   {
     auto reply = commandClient.Command( testString );
     //printf( "%d, [%s]\n", counter++, reply.c_str() );
     //std::this_thread::sleep_for( std::chrono::seconds(1) );
   }
+#endif
   auto t2 = std::chrono::steady_clock::now();
-  printf( "%10.4f\n", (t2-t1).count()/1e9);
+  printf( "%20.8f\n", (t2-t1).count()/1e9);
   return 0;
 }

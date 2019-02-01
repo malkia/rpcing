@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package service;
 
+option cc_enable_arenas = true;
+
 message CommandRequest {
   string command = 1;
 }
@@ -12,4 +14,7 @@ message CommandResponse {
 
 service MainControl {
   rpc Command( CommandRequest ) returns ( CommandResponse ) {}
+  rpc CommandStream( stream CommandRequest ) returns ( stream CommandResponse ) {}
+  rpc CommandStreamIn( stream CommandRequest ) returns ( CommandResponse ) {}
+  rpc CommandStreamOut( CommandRequest ) returns ( stream CommandResponse ) {}
 }
