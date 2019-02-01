@@ -19,7 +19,7 @@ public:
   {
     service::CommandResponse commandResponse;
     service::CommandRequest commandRequest;
-    commandRequest.set_command( command );
+    //commandRequest.set_command( command );
 
     grpc::ClientContext clientContext;
     //clientContext.set_compression_algorithm(GRPC_COMPRESS_DEFLATE);
@@ -28,7 +28,7 @@ public:
 
     if( status.ok() )
     {
-      return commandResponse.result();
+      return std::string(); //commandResponse.result();
     }
 
     printf("failed with %d, %s\n", status.error_code(), status.error_message().c_str() );
@@ -67,7 +67,7 @@ class CommandService : public service::MainControl::Service {
   grpc::Status Command( grpc::ServerContext* context, const service::CommandRequest *request, service::CommandResponse *response ) override
   {
      //context->set_compression_algorithm( GRPC_COMPRESS_DEFLATE );
-     response->set_result( toastedString );
+     //response->set_result( toastedString );
      return grpc::Status::OK;
   }
 
@@ -94,7 +94,7 @@ static void serverThreadProc( std::unique_ptr<grpc::Server> server )
 
 int main( int argc, const char* argv[] )
 {
-  std::string serverAddr{ "0.0.0.0:56789" };
+  std::string serverAddr{ "localhost:56789" };
 
   grpc::ServerBuilder serverBuilder;
   //serverBuilder.SetDefaultCompressionAlgorithm(GRPC_COMPRESS_GZIP);

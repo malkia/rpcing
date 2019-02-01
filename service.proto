@@ -5,11 +5,11 @@ package service;
 option cc_enable_arenas = true;
 
 message CommandRequest {
-  string command = 1;
+  //string command = 1;
 }
 
 message CommandResponse {
-  string result = 1;
+  //string result = 1;
 }
 
 service MainControl {
