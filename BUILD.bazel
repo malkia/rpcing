@@ -1,0 +1,13 @@
+
+load("@com_github_grpc_grpc//bazel:grpc_build_system.bzl", "grpc_proto_library")
+
+grpc_proto_library(
+   name = "service_grpc_proto",
+   srcs = [ "service.proto" ]
+)
+
+cc_binary(
+  name = "test",
+  srcs = [ "test.cpp" ],
+  deps = [ "@com_github_grpc_grpc//:grpc++", ":service_grpc_proto" ]
+)
