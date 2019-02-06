@@ -1,6 +1,7 @@
 #include "service.grpc.pb.h"
 
 #include <grpcpp/grpcpp.h>
+#include <grpcpp/resource_quota.h>
 
 #include <stdio.h>
 #include <thread>
@@ -15,7 +16,19 @@ gpr_timespec grpc_deadline_in_millis( uint64_t deadlineInMillis )
       gpr_time_from_micros( deadlineInMillis * 1000, GPR_TIMESPAN )
   );
 }
-  
+
+struct ContextWithResponse
+{
+  std::unique_ptr<grpc::ClientContext> context;
+  service::CommandResponse response;
+};
+
+struct RequestWithResponse
+{
+  service::CommandRequest request;
+  service::CommandResponse response;
+};
+
 class CommandClient {
   std::unique_ptr<service::MainControl::Stub> m_stub;
   grpc::CompletionQueue m_cq;
@@ -71,11 +84,6 @@ public:
       }
   }
 
-  struct ContextWithResponse
-  {
-    std::unique_ptr<grpc::ClientContext> context;
-    service::CommandResponse response;
-  };
 
   grpc::Status IssueAsyncCommand( const service::CommandRequest& request, ContextWithResponse& contextWithResponse, grpc::CompletionQueue& completionQueue )
   {
@@ -83,6 +91,48 @@ public:
     rpc->StartCall();
     grpc::Status status;
     rpc->Finish( &contextWithResponse.response, &status, (void*)&contextWithResponse );
+    return status;
+  }
+
+  grpc::Status IssueAsyncCommandStream( 
+    grpc::ClientContext& clientContext, 
+    std::vector<RequestWithResponse>& requestsWithResponses, 
+    grpc::CompletionQueue& completionQueue )
+  {
+    auto rpc{ m_stub->PrepareAsyncCommandStream( &clientContext, &completionQueue ) };
+    bool ok = false;
+    void* tag = nullptr;
+    printf("1\n");
+    rpc->StartCall( (void*) -1 );
+    if( !completionQueue.Next(&tag, &ok) || !ok || tag != (void*) -1 )
+       printf("failed, tag=%p\n", tag );
+    printf("2\n");
+    rpc->ReadInitialMetadata( (void*) -2 );
+    if( !completionQueue.Next(&tag, &ok) || !ok || tag != (void*) -2 )
+       printf("failed, tag=%p\n", tag );
+    printf("2a\n");
+    // For each Write, a tag must be received from the completion queue, before procedding with another.
+    for( auto& requestWithResponse : requestsWithResponses )
+    {
+      rpc->Write( requestWithResponse.request, (void*)&requestWithResponse.request );
+      if( !completionQueue.Next(&tag, &ok) || !ok || tag != (void*)&requestWithResponse.request )
+        printf("failed, tag=%p\n", tag );
+      rpc->Read( &requestWithResponse.response, (void*)&requestWithResponse.response );
+      if( !completionQueue.Next(&tag, &ok) || !ok || tag != (void*)&requestWithResponse.response )
+        printf("failed, tag=%p\n", tag );
+    }
+    printf("6\n");
+    rpc->WritesDone((void*)-3);
+    printf("7\n");
+    if( !completionQueue.Next(&tag, &ok) || !ok || tag != (void*) -3 )
+       printf("failed, tag=%p\n", tag );
+    printf("8\n");
+    grpc::Status status;
+    rpc->Finish( &status, (void*) -4 );
+    printf("9\n");
+    if( !completionQueue.Next(&tag, &ok) || !ok || tag != (void*) -4 )
+       printf("failed, tag=%p\n", tag );
+    printf("10\n");
     return status;
   }
 
@@ -102,7 +152,7 @@ public:
           printf("\nSHUTDOWN\n"); keepGoing = false; break;
         break;
         case grpc::CompletionQueue::NextStatus::TIMEOUT:
-          printf("\TIMEOUT\n"); keepGoing = false; break;
+          printf("\nTIMEOUT\n"); keepGoing = false; break;
         break;
         case grpc::CompletionQueue::NextStatus::GOT_EVENT:
         processedCount++;
@@ -111,6 +161,8 @@ public:
           assert(0);
           break;
       }
+      if( !keepGoing )
+        break;
       if( !ok )
         printf( "tag=%p, ok=%d\n", tag, ok );
     }
@@ -170,12 +222,23 @@ class CommandService : public service::MainControl::Service {
   {
      service::CommandRequest commandRequest;
      service::CommandResponse commandResponse;
-     while( stream->Read(&commandRequest) )
+     printf(" A'\n");
+     stream->SendInitialMetadata();
+     size_t readCount = 0;
+     size_t writeCount = 0;
+     for( ;; )
      {
+     //   printf(" A\n");
+        if( !stream->Read(&commandRequest) )
+          break;
+        readCount++;
+   //     printf(" B\n");
        //commandResponse.set_result( toastedString );
-       if( !stream->Write(commandResponse) )
-         printf("w! !");
+      if( !stream->Write(commandResponse) )
+         printf(" w! !");
+      writeCount++;
      }
+     printf(" C readCount=%zd writeCount=%zd\n", readCount, writeCount );
      return grpc::Status::OK;
   }
 };
@@ -191,15 +254,25 @@ int main( int argc, const char* argv[] )
 {
   std::string serverAddr{ "localhost:56789" };
 
+  grpc::ResourceQuota serverResourceQuota{ "serverResourceQuota" };
+  grpc::ResourceQuota clientResourceQuota{ "clientResourceQuota" };
+
+  serverResourceQuota.SetMaxThreads( 16 );
+  serverResourceQuota.Resize( 1024*1024*16 );//* 1024 * 1024 );
+  clientResourceQuota.SetMaxThreads( 16 );
+  clientResourceQuota.Resize( 1024*1024*16 );//* 1024 * 1024 );
+
   grpc::ServerBuilder serverBuilder;
-  //serverBuilder.SetDefaultCompressionAlgorithm(GRPC_COMPRESS_GZIP);
+  serverBuilder.SetResourceQuota( serverResourceQuota );
+  serverBuilder.SetDefaultCompressionAlgorithm(GRPC_COMPRESS_NONE);
   serverBuilder.AddListeningPort( serverAddr, grpc::InsecureServerCredentials() );
   CommandService theService;
   serverBuilder.RegisterService( &theService );
   std::thread( serverThreadProc, std::move(serverBuilder.BuildAndStart()) ).detach();
 
   grpc::ChannelArguments channelArguments;
-  //channelArguments.SetCompressionAlgorithm(GRPC_COMPRESS_GZIP);
+  channelArguments.SetResourceQuota( clientResourceQuota );
+  channelArguments.SetCompressionAlgorithm(GRPC_COMPRESS_NONE);
   CommandClient commandClient(grpc::CreateCustomChannel(
     serverAddr, grpc::InsecureChannelCredentials(), channelArguments
   ));
@@ -209,8 +282,20 @@ int main( int argc, const char* argv[] )
   auto t1 = std::chrono::steady_clock::now();
 #if 1
   grpc::CompletionQueue completionQueue;
+  grpc::ClientContext clientContext;
   service::CommandRequest request;
-  size_t batchSize = 16384;
+  size_t batchSize = 16384*4;
+  std::vector<RequestWithResponse> requestsWithResponses;
+  auto t10 = std::chrono::steady_clock::now();
+  requestsWithResponses.resize( batchSize );
+  printf( "construction        time=%20.8f\n", (t10-t1).count()/1e9);
+  commandClient.IssueAsyncCommandStream( clientContext, requestsWithResponses, completionQueue );
+  auto t11 = std::chrono::steady_clock::now();
+  printf( "init                time=%20.8f\n", (t11-t10).count()/1e9);
+#elif 1
+  grpc::CompletionQueue completionQueue;
+  service::CommandRequest request;
+  size_t batchSize = 16384*4;
   std::vector<CommandClient::ContextWithResponse> contextsWithResponses;
   auto t10 = std::chrono::steady_clock::now();
   printf( "construction        time=%20.8f\n", (t10-t1).count()/1e9);
