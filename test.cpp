@@ -140,7 +140,7 @@ size_t outOfOrder = 0;
        printf( "client command_id=%zd current=%zd diff=%zd\n", result_id, current, result_id - current );
 
       void* tag2 = nullptr;
-      bool ok2 = nullptr;
+      bool ok2 = false;
 
       bool r1 = completionQueue.Next( &tag1, &ok1 );
       bool r2 = completionQueue.Next( &tag2, &ok2 );
@@ -167,8 +167,8 @@ size_t outOfOrder = 0;
     grpc::Status status;
     rpc->Finish( &status, (void*) -4 );
     printf("9\n");
-    //if( !completionQueue.Next(&tag, &ok) || !ok || tag != (void*) -4 )
-    //   printf("failed, tag=%p\n", tag );
+    if( !completionQueue.Next(&tag, &ok) || !ok || tag != (void*) -4 )
+       printf("failed, tag=%p\n", tag );
     printf("10\n");
     return status;
   }
@@ -356,7 +356,7 @@ static void serverThreadProc( std::unique_ptr<grpc::Server> server )
 
 static void asyncServerThreadProc( service::MainControl::AsyncService *service, std::unique_ptr<grpc::ServerCompletionQueue> serverCQ, std::string serverId )
 {
-  printf("About to start\n");
+  printf( "server: Starting...\n" );
 
   grpc::ServerContext serverContext;
   grpc::ServerAsyncReaderWriter<service::CommandResponse, service::CommandRequest> serverStream( &serverContext );
@@ -364,32 +364,31 @@ static void asyncServerThreadProc( service::MainControl::AsyncService *service, 
   service->RequestCommandStream( &serverContext, &serverStream, serverCQ.get(), serverCQ.get(), (void*) -1 );
   {
     void* tag = nullptr;
-    bool ok = false;
-    bool r = serverCQ->Next( &tag, &ok );
+    bool ok = false, r = serverCQ->Next( &tag, &ok );
     if( !r || !ok || tag != (void*) -1 )
     {
-      printf(" error: r=%d ok=%d tag=%p (RequestCommandStream)\n", r, ok, tag );
+      printf(" server: RequestCommandStream error: r=%d ok=%d tag=%p\n", r, ok, tag );
       return;
     }
+    printf( "server: RequestCommandStream successful\n" );
   }
 
   serverStream.SendInitialMetadata( (void*) -2 );
   {
     void* tag = nullptr;
-    bool ok = false;
-    bool r = serverCQ->Next( &tag, &ok );
+    bool ok = false, r = serverCQ->Next( &tag, &ok );
     if( !r || !ok || tag != (void*) -2 )
     {
       printf(" error: r=%d ok=%d tag=%p (SendInitialMetadata)\n", r, ok, tag );
       return;
     }
+    printf( "server: SendInitialMetadata successful\n" );
   }
 
   service::CommandResponse response;
   service::CommandRequest request;
 
   size_t outOfOrder = 0;
-
   size_t current = 0;
   for( ;; )
   {
@@ -434,9 +433,9 @@ static void asyncServerThreadProc( service::MainControl::AsyncService *service, 
     }
   }
 
-  printf( " server out of order=%zd\n", outOfOrder );
+  printf( " server: Served %zd queries out of order\n", outOfOrder );
 
-/*
+
   serverStream.Finish( grpc::Status::OK, (void*) -5 );
   {
     void* tag = nullptr;
@@ -447,7 +446,7 @@ static void asyncServerThreadProc( service::MainControl::AsyncService *service, 
       printf(" error: r=%d ok=%d tag=%p (Finish)\n", r, ok, tag );
       return;
     }
-  }*/
+  }
 
   printf("About to finish\n");
 }
@@ -554,6 +553,6 @@ int main( int argc, const char* argv[] )
   //st3.join();
   //st4.join();
   //st5.join();
-  serverCompletionQueue1.get()->Shutdown();
+  //serverCompletionQueue1.get()->Shutdown();
   return 0;
 }
