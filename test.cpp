@@ -111,18 +111,53 @@ public:
     if( !completionQueue.Next(&tag, &ok) || !ok || tag != (void*) -2 )
        printf("failed, tag=%p\n", tag );
     printf("2a\n");
-    // For each Write, a tag must be received from the completion queue, before procedding with another.
-    for( auto& requestWithResponse : requestsWithResponses )
+
+      service::CommandResponse response;
+      service::CommandRequest request;
+
+size_t outOfOrder = 0;
+
+    // grpc::ClientAsyncReaderWriter
+    //for( auto& requestWithResponse : requestsWithResponses )
+    for( size_t current = 0; current < requestsWithResponses.size(); ++current )
     {
-      //printf("@"); fflush(stdout);
-      rpc->Write( requestWithResponse.request, (void*)&requestWithResponse.request );
-      if( !completionQueue.Next(&tag, &ok) || !ok || tag != (void*)&requestWithResponse.request )
-        printf("failed, tag=%p\n", tag );
-      //printf("#"); fflush(stdout);
-      rpc->Read( &requestWithResponse.response, (void*)&requestWithResponse.response );
-      if( !completionQueue.Next(&tag, &ok) || !ok || tag != (void*)&requestWithResponse.response )
-        printf("failed, tag=%p\n", tag );
+      void* writeTag = (void*)&request;// (void*)&requestWithResponse.request;
+      void* readTag = (void*)&response;// (void*)&requestWithResponse.response;
+
+
+      void* tag1 = nullptr;
+      bool ok1 = false;
+//      rpc->Write( requestWithResponse.request, writeTag );
+ //     rpc->Read( &requestWithResponse.response, readTag );
+
+      request.set_command_id( current );
+      rpc->Write( request, writeTag );
+
+      rpc->Read( &response, readTag );
+      size_t result_id = response.result_id();
+
+     if( result_id+1 != current )
+       printf( "client command_id=%zd current=%zd diff=%zd\n", result_id, current, result_id - current );
+
+      void* tag2 = nullptr;
+      bool ok2 = nullptr;
+
+      bool r1 = completionQueue.Next( &tag1, &ok1 );
+      bool r2 = completionQueue.Next( &tag2, &ok2 );
+
+      if( (!r1 || !r2) || (!ok1 || !ok2) || !((tag1 == readTag && tag2 == writeTag) || (tag1 == writeTag && tag2 == readTag )))
+      {
+        printf( "Error, r1=%d, r2=%d, ok1=%d, ok2=%d, tag1=%p, tag2=%p, readTag=%p, writeTag=%p\n", r1, r2, ok1, ok2, tag1, tag2, readTag, writeTag );
+      }
+      else if( tag1 == readTag && tag2 == writeTag )
+      {
+        outOfOrder++;
+        //printf("?");
+      }
     }
+
+    printf(" client out of order=%zd\n", outOfOrder );
+
     printf("6\n");
     rpc->WritesDone((void*)-3);
     printf("7\n");
@@ -132,8 +167,8 @@ public:
     grpc::Status status;
     rpc->Finish( &status, (void*) -4 );
     printf("9\n");
-    if( !completionQueue.Next(&tag, &ok) || !ok || tag != (void*) -4 )
-       printf("failed, tag=%p\n", tag );
+    //if( !completionQueue.Next(&tag, &ok) || !ok || tag != (void*) -4 )
+    //   printf("failed, tag=%p\n", tag );
     printf("10\n");
     return status;
   }
@@ -269,7 +304,7 @@ public:
     , m_serverCQ( cq )
   {
     printf("aaa1\n");
-      service->RequestCommandStream( &m_serverContext, &m_serverStream, m_cq, m_serverCQ, this );
+    service->RequestCommandStream( &m_serverContext, &m_serverStream, m_cq, m_serverCQ, this );
     printf("aaa2\n");
   }
 
@@ -279,7 +314,7 @@ public:
     {
         default:
         case State::FINISHED:
-          printf("."); fflush(stdout);
+          printf("\nfinished\n"); fflush(stdout);
           delete this;
           return;
 
@@ -322,23 +357,98 @@ static void serverThreadProc( std::unique_ptr<grpc::Server> server )
 static void asyncServerThreadProc( service::MainControl::AsyncService *service, std::unique_ptr<grpc::ServerCompletionQueue> serverCQ, std::string serverId )
 {
   printf("About to start\n");
-  new CallData( service, serverCQ.get() );
-  void* tag;
-  bool ok;
+
+  grpc::ServerContext serverContext;
+  grpc::ServerAsyncReaderWriter<service::CommandResponse, service::CommandRequest> serverStream( &serverContext );
+
+  service->RequestCommandStream( &serverContext, &serverStream, serverCQ.get(), serverCQ.get(), (void*) -1 );
+  {
+    void* tag = nullptr;
+    bool ok = false;
+    bool r = serverCQ->Next( &tag, &ok );
+    if( !r || !ok || tag != (void*) -1 )
+    {
+      printf(" error: r=%d ok=%d tag=%p (RequestCommandStream)\n", r, ok, tag );
+      return;
+    }
+  }
+
+  serverStream.SendInitialMetadata( (void*) -2 );
+  {
+    void* tag = nullptr;
+    bool ok = false;
+    bool r = serverCQ->Next( &tag, &ok );
+    if( !r || !ok || tag != (void*) -2 )
+    {
+      printf(" error: r=%d ok=%d tag=%p (SendInitialMetadata)\n", r, ok, tag );
+      return;
+    }
+  }
+
+  service::CommandResponse response;
+  service::CommandRequest request;
+
+  size_t outOfOrder = 0;
+
+  size_t current = 0;
   for( ;; )
   {
-    bool shouldContinue = serverCQ->Next( &tag, &ok );
-    printf("%s: %c%c\n", serverId.c_str(), shouldContinue ? '.' : '?', ok ? '+' : '-' ); fflush(stdout);
-    auto callData = static_cast<CallData*>(tag);
-   // fflush(stdout);
-    //printf( "asyncServer: shouldContinue=%d ok=%d tag=%p\n", shouldContinue, ok, tag );
-    if( !ok )
-      callData->Stop();
-    callData->Next();
-    if( !ok )
+    void* readTag = (void*) -3;
+    void* writeTag = (void*) -4;
+
+    serverStream.Read( &request, readTag );
+    size_t command_id = request.command_id();
+
+    if( command_id+1 != current )
+      printf( "server command_id=%zd current=%zd diff=%zd\n", command_id, current, command_id - current );
+
+    response.set_result_id( current );
+    serverStream.Write( response, writeTag );
+
+    current++;
+
+    void* tag1 = nullptr;
+    bool ok1 = false;
+
+    void* tag2 = nullptr;
+    bool ok2 = false;
+
+    //printf("R");
+    bool r1 = serverCQ->Next( &tag1, &ok1 );
+    if( !r1 || !ok1 )
       break;
-    std::this_thread::sleep_for( std::chrono::milliseconds(rand()%1000) );
+
+    //printf("W");
+    bool r2 = serverCQ->Next( &tag2, &ok2 );
+    if( !r2 || !ok2 )
+      break;
+
+    if( (!r1 || !r2) || (!ok1 || !ok2) || !((tag1 == readTag && tag2 == writeTag) || (tag1 == writeTag && tag2 == readTag )))
+    {
+      printf( "Error, r1=%d, r2=%d, ok1=%d, ok2=%d, tag1=%p, tag2=%p, readTag=%p, writeTag=%p (server)\n", r1, r2, ok1, ok2, tag1, tag2, readTag, writeTag );
+    }
+    else if( tag1 == writeTag && tag2 == readTag )
+    {
+      outOfOrder ++;
+      //printf("@");
+    }
   }
+
+  printf( " server out of order=%zd\n", outOfOrder );
+
+/*
+  serverStream.Finish( grpc::Status::OK, (void*) -5 );
+  {
+    void* tag = nullptr;
+    bool ok = false;
+    bool r = serverCQ->Next( &tag, &ok );
+    if( !r || !ok || tag != (void*) -5 )
+    {
+      printf(" error: r=%d ok=%d tag=%p (Finish)\n", r, ok, tag );
+      return;
+    }
+  }*/
+
   printf("About to finish\n");
 }
 
@@ -356,8 +466,8 @@ int main( int argc, const char* argv[] )
   clientResourceQuota.Resize( 1024*1024*16 );//* 1024 * 1024 );
 
   grpc::ServerBuilder serverBuilder;
- // serverBuilder.SetResourceQuota( serverResourceQuota );
- // serverBuilder.SetDefaultCompressionAlgorithm(GRPC_COMPRESS_NONE);
+  serverBuilder.SetResourceQuota( serverResourceQuota );
+  serverBuilder.SetDefaultCompressionAlgorithm(GRPC_COMPRESS_NONE);
   serverBuilder.AddListeningPort( serverAddr, grpc::InsecureServerCredentials() );
   service::MainControl::AsyncService theService;
   serverBuilder.RegisterService( &theService );
@@ -369,8 +479,8 @@ int main( int argc, const char* argv[] )
   auto server = serverBuilder.BuildAndStart();
 
   grpc::ChannelArguments channelArguments;
-//  channelArguments.SetResourceQuota( clientResourceQuota );
-//  channelArguments.SetCompressionAlgorithm(GRPC_COMPRESS_NONE);
+  channelArguments.SetResourceQuota( clientResourceQuota );
+  channelArguments.SetCompressionAlgorithm(GRPC_COMPRESS_NONE);
 #if 1
   CommandClient commandClient(server->InProcessChannel(channelArguments));
 #else
@@ -393,7 +503,8 @@ int main( int argc, const char* argv[] )
   grpc::CompletionQueue completionQueue;
   grpc::ClientContext clientContext;
   service::CommandRequest request;
-  size_t batchSize = 4;//16384*4;
+  size_t batchSize = (16384*2+8192)*2;
+  printf("batchSize=%zd\n", batchSize);
   std::vector<RequestWithResponse> requestsWithResponses;
   auto t10 = std::chrono::steady_clock::now();
   requestsWithResponses.resize( batchSize );
@@ -437,9 +548,12 @@ int main( int argc, const char* argv[] )
   printf( "end %20.8f\n", (t2-t1).count()/1e9);
 
   st1.join();
+  auto t3 = std::chrono::steady_clock::now();
+  printf( "after join %20.8f\n", (t3-t1).count()/1e9);
   //st2.join();
   //st3.join();
   //st4.join();
   //st5.join();
+  serverCompletionQueue1.get()->Shutdown();
   return 0;
 }

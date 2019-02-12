@@ -5,10 +5,12 @@ package service;
 option cc_enable_arenas = true;
 
 message CommandRequest {
+  fixed64 command_id = 1;
   //string command = 1;
 }
 
 message CommandResponse {
+  fixed64 result_id = 1;
   //string result = 1;
 }
 
