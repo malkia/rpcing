@@ -12,10 +12,10 @@ http_archive(
 )
 
 PROTOBUF_JAVALITE_VERSION="384989534b2246d413dbcd750744faab2607b516"
-PROTOBUF_JAVALITE_SHA256="6f7d472a354d653896ffde9364fac039c34cdf3dce855f79f6b25978c6bd2ea2"
+PROTOBUF_JAVALITE_SHA256="79d102c61e2a479a0b7e5fc167bcfaa4832a0c6aad4a75fa7da0480564931bcc"
 http_archive(
     name = "com_google_protobuf_javalite",
-    strip_prefix = "protobuf-javalite",
+    strip_prefix = "protobuf-" + PROTOBUF_JAVALITE_VERSION,
     urls = ["https://github.com/protocolbuffers/protobuf/archive/" + PROTOBUF_JAVALITE_VERSION + ".zip"],
     sha256 = PROTOBUF_JAVALITE_SHA256
 )
