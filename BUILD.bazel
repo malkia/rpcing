@@ -2,59 +2,69 @@ load("@com_github_grpc_grpc//bazel:grpc_build_system.bzl", "grpc_proto_library")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 load("@io_grpc_grpc_java//:java_grpc_library.bzl", "java_grpc_library")
-load("@io_bazel_rules_closure//closure/compiler:closure_js_library.bzl", "closure_js_library")
-load("@io_bazel_rules_closure//closure/protobuf:closure_proto_library.bzl", "closure_proto_library")
-load("@io_bazel_rules_closure//closure/testing:closure_js_test.bzl", "closure_js_test")
+load("@io_bazel_rules_closure//closure:defs.bzl", "closure_js_binary", "closure_js_library", "closure_js_test", "closure_proto_library")
 
 proto_library(
     name = "service_proto",
-    srcs = [ "service.proto" ],
+    srcs = ["service.proto"],
     deps = [
         "@com_google_protobuf//:any_proto",
     ],
 )
 
-#closure_proto_library(
-#    name = "closure_service_proto",
-#    deps = [":service_proto"],
-#)
+closure_js_library(
+    name = "kim_lib",
+    srcs = ["kim.js"],
+)
+
+closure_js_binary(
+    name = "kim_bin",
+    deps = [":kim_lib"],
+    language = "ECMASCRIPT3",
+    output_wrapper = "(function(){%output%}).call(this);",
+)
+
+closure_proto_library(
+    name = "closure_service_proto",
+    deps = [":service_proto"],
+)
 
 grpc_proto_library(
-   name = "service_grpc_proto",
-   srcs = [ "service.proto" ]
+    name = "service_grpc_proto",
+    srcs = ["service.proto"],
 )
 
 java_proto_library(
-  name = "java_service_proto",
-  deps = [ ":service_proto" ]
+    name = "java_service_proto",
+    deps = [":service_proto"],
 )
 
 java_grpc_library(
-  name = "java_service_grpc",
-  srcs = [ ":service_proto" ],
-  deps = [ ":java_service_proto" ],
+    name = "java_service_grpc",
+    srcs = [":service_proto"],
+    deps = [":java_service_proto"],
 )
 
 cc_binary(
-  name = "test",
-  srcs = [ "test.cpp" ],
-  deps = [ "@com_github_grpc_grpc//:grpc++", ":service_grpc_proto" ]
+    name = "test",
+    srcs = ["test.cpp"],
+    deps = ["@com_github_grpc_grpc//:grpc++", ":service_grpc_proto"],
 )
 
 py_binary(
-  name = "shed",
-  srcs = [ "shed.py" ]
+    name = "shed",
+    srcs = ["shed.py"],
 )
 
 sh_binary(
-  name = "pike",
-  srcs = [ "pike.sh" ]
+    name = "pike",
+    srcs = ["pike.sh"],
 )
 
 #go_binary(
 #  name = "ken",
 #  srcs = [ "ken.go" ],
-#  deps = [ 
+#  deps = [
 #    "@com_github_golang_protobuf//proto:go_default_library",
 #    ":gofast_grpc"
 #  ]

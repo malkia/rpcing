@@ -52,7 +52,10 @@ http_archive(
     sha256 = GRPC_JAVA_SHA256,
 )
 load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
-grpc_java_repositories()
+grpc_java_repositories(
+    omit_com_google_errorprone_error_prone_annotations = True,
+    omit_com_google_code_findbugs_jsr305 = True
+)
 
 # From https://github.com/bazelbuild/rules_closure/releases
 RULES_CLOSURE_VERSION="0.8.0"
@@ -64,7 +67,8 @@ http_archive(
     sha256 = RULES_CLOSURE_SHA256,
 )
 load("@io_bazel_rules_closure//closure:defs.bzl", "closure_repositories")
-closure_repositories()
+closure_repositories(
+)
 
 # rules_typescript
 
