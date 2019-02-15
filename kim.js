@@ -1,0 +1,2 @@
+/** @suppress {undefinedVars} */
+kim = "js";
