@@ -4,6 +4,9 @@ load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 load("@io_grpc_grpc_java//:java_grpc_library.bzl", "java_grpc_library")
 load("@io_bazel_rules_closure//closure:defs.bzl", "closure_js_binary", "closure_js_library", "closure_js_test", "closure_proto_library")
 
+load(":lizard.bzl", "bask")
+#bask()
+
 proto_library(
     name = "service_proto",
     srcs = ["service.proto"],
@@ -76,3 +79,5 @@ sh_binary(
 #    importpath = "github.com/malkia/rpcing",
 #    protos = [":service_proto"],
 #)
+
+#bask()

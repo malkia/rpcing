@@ -1,6 +1,7 @@
 workspace( name = "rpcing" )
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load(":lizard.bzl", "bask")
 
 PROTOBUF_VERSION="3.6.1.3"
 PROTOBUF_SHA256="73fdad358857e120fd0fa19e071a96e15c0f23bb25f85d3f7009abfd4f264a2a"
@@ -102,3 +103,4 @@ yarn_install(
 # Setup TypeScript toolchain
 #load("@npm_bazel_typescript//:defs.bzl", "ts_setup_workspace")
 #ts_setup_workspace()
+bask()
