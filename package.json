@@ -1,0 +1,12 @@
+{
+    "name": "@com_github_malkia/rpcing",
+    "description": "Rpcing, bazeling, etcing",
+    "keywords": [
+        "bazel",
+        "grpc",
+        "protobuf"
+    ],
+    "license": "MIT",
+    "version": "0.0.1",
+    "homepage": "https://github.com/malkia/rpcing"
+}

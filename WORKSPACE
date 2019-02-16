@@ -1,7 +1,7 @@
 workspace( name = "rpcing" )
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-load(":lizard.bzl", "bask")
+load(":lizard.bzl", "bask", "grub")
 
 PROTOBUF_VERSION="3.6.1.3"
 PROTOBUF_SHA256="73fdad358857e120fd0fa19e071a96e15c0f23bb25f85d3f7009abfd4f264a2a"
@@ -33,14 +33,17 @@ load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps", "grpc_test_only_
 grpc_deps()
 grpc_test_only_deps()
 
-RULES_GO_VERSION="0.17.0"
-RULES_GO_SHA256="492c3ac68ed9dcf527a07e6a1b2dcbf199c6bf8b35517951467ac32e421c06c1"
+#RULES_GO_VERSION="0.17.0"
+#RULES_GO_SHA256="492c3ac68ed9dcf527a07e6a1b2dcbf199c6bf8b35517951467ac32e421c06c1"
+RULES_GO_VERSION="0.15.11"
+RULES_GO_SHA256="7b7c74740e3a757204ddb93241ce728906af795d6c6aa0950e0e640716dc1e4a"
 http_archive(
     name = "io_bazel_rules_go",
     urls = [ "https://github.com/bazelbuild/rules_go/releases/download/" + RULES_GO_VERSION + "/rules_go-" + RULES_GO_VERSION + ".tar.gz" ],
     sha256 = RULES_GO_SHA256,
 )
-load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
+#load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies", "go_register_toolchains")
+load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_register_toolchains")
 go_rules_dependencies()
 go_register_toolchains()
 
@@ -73,17 +76,20 @@ closure_repositories(
 
 # rules_typescript
 
-# Fetch rules_nodejs
-# (you can check https://github.com/bazelbuild/rules_nodejs for a newer release than this)
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
     name = "build_bazel_rules_nodejs",
-    urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/0.18.5/rules_nodejs-0.18.5.tar.gz"],
-    sha256 = "c8cd6a77433f7d3bb1f4ac87f15822aa102989f8e9eb1907ca0cad718573985b",
+    urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/0.18.6/rules_nodejs-0.18.6.tar.gz"],
+    sha256 = "1416d03823fed624b49a0abbd9979f7c63bbedfd37890ddecedd2fe25cccebc6",
 )
 
 # Setup the NodeJS toolchain
-load("@build_bazel_rules_nodejs//:defs.bzl", "node_repositories", "yarn_install")
-node_repositories()
+load("@build_bazel_rules_nodejs//:defs.bzl", "node_repositories", "yarn_install", "npm_install")
+node_repositories(
+    package_json = ["//:package.json"],
+    node_version = "10.13.0",
+    yarn_version = "1.12.1",
+)
 
 # Setup Bazel managed npm dependencies with the `yarn_install` rule.
 # The name of this rule should be set to `npm` so that `ts_library`
@@ -96,6 +102,12 @@ yarn_install(
   yarn_lock = "//:yarn.lock",
 )
 
+#npm_install(
+#    name = "npm",
+#    package_json = "//:package.json",
+#    package_lock_json = "//:package-lock.json",
+#)
+
 # Install all Bazel dependencies needed for npm packages that supply Bazel rules
 #load("@npm//:install_bazel_dependencies.bzl", "install_bazel_dependencies")
 #install_bazel_dependencies()
@@ -104,3 +116,4 @@ yarn_install(
 #load("@npm_bazel_typescript//:defs.bzl", "ts_setup_workspace")
 #ts_setup_workspace()
 bask()
+grub()

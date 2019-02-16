@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 load("@io_grpc_grpc_java//:java_grpc_library.bzl", "java_grpc_library")
 load("@io_bazel_rules_closure//closure:defs.bzl", "closure_js_binary", "closure_js_library", "closure_js_test", "closure_proto_library")
+load("@build_bazel_rules_nodejs//:defs.bzl", "jasmine_node_test", "nodejs_binary")
 
 load(":lizard.bzl", "bask")
 #bask()
@@ -64,20 +65,34 @@ sh_binary(
     srcs = ["pike.sh"],
 )
 
-#go_binary(
-#  name = "ken",
-#  srcs = [ "ken.go" ],
-#  deps = [
-#    "@com_github_golang_protobuf//proto:go_default_library",
-#    ":gofast_grpc"
-#  ]
+#filegroup(
+#    name = "noodle_program",
+#    srcs = [ "noodle.js" ]
 #)
 
-#go_proto_library(
-#    name = "gofast_grpc",
-#    compilers = ["@io_bazel_rules_go//proto:gogofast_grpc"],
-#    importpath = "github.com/malkia/rpcing",
-#    protos = [":service_proto"],
+#jasmine_node_test(
+#    name = "noodle",
+#    data = [ "noodle.js", ":noodle_program" ],
+#    args = ["--node_options=--expose-gc"],
+#    entry_point = "bin/noodle.js"
 #)
+
+go_binary(
+  name = "ken",
+  srcs = [ "ken.go" ],
+  deps = [
+    "@com_github_golang_protobuf//proto:go_default_library",
+    "@org_golang_google_grpc//:go_default_library",
+    ":go_grpc"
+  ]
+)
+
+go_proto_library(
+    name = "go_grpc",
+    compilers = [ "@io_bazel_rules_go//proto:go_grpc" ],
+    importpath = "github.com/malkia/rpcing",
+    proto = ":service_proto"
+    #protos = [ ":service_proto" ],
+)
 
 #bask()
