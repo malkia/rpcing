@@ -112,7 +112,7 @@ func main() {
 	}
 	//	log.Printf("hooray %v", r)
 
-	var clientChans [100]chan struct{}
+	var clientChans [16]chan struct{}
 	for i := range clientChans {
 		clientChans[i] = make(chan struct{})
 	}
@@ -125,7 +125,7 @@ func main() {
 			}
 			//log.Printf("%v: hooray %v", clientIndex, stream)
 			var total uint64 = 0
-			for b := uint64(0); b <= 8192; b++ {
+			for b := uint64(0); b <= 65536; b++ {
 				//	for _, b := range []uint64{1, 2, 3, 4} {
 				x.CommandId = b
 				e := stream.Send(&x)
