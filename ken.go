@@ -16,19 +16,16 @@ import (
 type server struct{}
 
 func (s *server) Command(ctx context.Context, in *service.CommandRequest) (*service.CommandResponse, error) {
-	log.Printf("A")
 	log.Printf("Received: %v", in)
 	return &service.CommandResponse{ResultId: 42}, nil
 }
 
 func (s *server) CommandStream(stream service.MainControl_CommandStreamServer) error {
-	log.Printf("B")
 	var x uint64 = 0
 	y := service.CommandResponse{}
 	for {
 		r, e := stream.Recv()
 		if e == io.EOF {
-			log.Printf("EOF")
 			return nil
 			//			return stream.Send(&service.CommandResponse{ResultId: 13})
 		}
@@ -66,6 +63,7 @@ func (s *server) CommandStreamIn(stream service.MainControl_CommandStreamInServe
 func main() {
 	listenAddr := ":50051"
 	serveAddr := "localhost" + listenAddr
+	networkType := "tcp"
 	x := service.CommandRequest{}
 	x.CommandId = 12
 	y := service.CommandResponse{}
@@ -87,7 +85,7 @@ func main() {
 	fmt.Println("b=%+v", b)
 
 	go func() {
-		lis, err := net.Listen("tcp", listenAddr)
+		lis, err := net.Listen(networkType, listenAddr)
 		if err != nil {
 			log.Fatalf("failed to listen: %v", err)
 		}
@@ -112,31 +110,46 @@ func main() {
 	if err != nil {
 		log.Fatalf("error calling %v", err)
 	}
-	log.Printf("hooray %v", r)
+	//	log.Printf("hooray %v", r)
 
-	stream, err := channel.CommandStream(ctx)
-	if err != nil {
-		log.Fatalf("error calling %v", err)
+	var clientChans [100]chan struct{}
+	for i := range clientChans {
+		clientChans[i] = make(chan struct{})
 	}
-	log.Printf("hooray %v", stream)
-	var total uint64 = 0
-	for b := uint64(0); b <= 8192; b++ {
-		//	for _, b := range []uint64{1, 2, 3, 4} {
-		x.CommandId = b
-		e := stream.Send(&x)
-		if e != nil {
-			log.Printf("stream.Send error %v", e)
-		}
-		r, e := stream.Recv()
-		if e != nil {
-			log.Printf("stream.Recv error %v", e)
-		}
-		total += r.ResultId
-		//		log.Printf("stream.Recv: %v", r)
+	for clientIndex := range clientChans {
+		clientChan := clientChans[clientIndex]
+		go func() {
+			stream, err := channel.CommandStream(ctx)
+			if err != nil {
+				log.Fatalf("error calling %v", err)
+			}
+			//log.Printf("%v: hooray %v", clientIndex, stream)
+			var total uint64 = 0
+			for b := uint64(0); b <= 8192; b++ {
+				//	for _, b := range []uint64{1, 2, 3, 4} {
+				x.CommandId = b
+				e := stream.Send(&x)
+				if e != nil {
+					log.Printf("stream.Send error %v", e)
+				}
+				r, e := stream.Recv()
+				if e != nil {
+					log.Printf("stream.Recv error %v", e)
+				}
+				total += r.ResultId
+				//		log.Printf("stream.Recv: %v", r)
+			}
+			e := stream.CloseSend()
+			if e != nil {
+				log.Printf("CloseSend error %v", e)
+			}
+			if false {
+				log.Printf("%v: last stream.Recv: %v", clientIndex, r)
+			}
+			close(clientChan)
+		}()
 	}
-	e := stream.CloseSend()
-	if e != nil {
-		log.Printf("CloseSend error %v", e)
+	for i := range clientChans {
+		<-clientChans[i]
 	}
-	log.Printf("last stream.Recv: %v", r)
 }
