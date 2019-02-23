@@ -9,6 +9,8 @@
 #include <assert.h>
 #include <memory>
 
+#include <unistd.h>
+
 gpr_timespec grpc_deadline_in_millis( uint64_t deadlineInMillis )
 {
   return gpr_time_add(
@@ -112,10 +114,10 @@ public:
        printf("failed, tag=%p\n", tag );
     printf("2a\n");
 
-      service::CommandResponse response;
-      service::CommandRequest request;
+    service::CommandResponse response;
+    service::CommandRequest request;
 
-size_t outOfOrder = 0;
+    size_t outOfOrder = 0;
 
     // grpc::ClientAsyncReaderWriter
     //for( auto& requestWithResponse : requestsWithResponses )
@@ -124,36 +126,22 @@ size_t outOfOrder = 0;
       void* writeTag = (void*)&request;// (void*)&requestWithResponse.request;
       void* readTag = (void*)&response;// (void*)&requestWithResponse.response;
 
-
       void* tag1 = nullptr;
       bool ok1 = false;
-//      rpc->Write( requestWithResponse.request, writeTag );
- //     rpc->Read( &requestWithResponse.response, readTag );
-
       request.set_command_id( current );
       rpc->Write( request, writeTag );
+      bool r1 = completionQueue.Next( &tag1, &ok1 );
+      if( !r1 || !ok1 )
+      {
+        break;
+      }
 
       rpc->Read( &response, readTag );
-      size_t result_id = response.result_id();
-
-     if( result_id+1 != current )
-       printf( "client command_id=%zd current=%zd diff=%zd\n", result_id, current, result_id - current );
-
       void* tag2 = nullptr;
       bool ok2 = false;
-
-      bool r1 = completionQueue.Next( &tag1, &ok1 );
       bool r2 = completionQueue.Next( &tag2, &ok2 );
-
-      if( (!r1 || !r2) || (!ok1 || !ok2) || !((tag1 == readTag && tag2 == writeTag) || (tag1 == writeTag && tag2 == readTag )))
-      {
-        printf( "Error, r1=%d, r2=%d, ok1=%d, ok2=%d, tag1=%p, tag2=%p, readTag=%p, writeTag=%p\n", r1, r2, ok1, ok2, tag1, tag2, readTag, writeTag );
-      }
-      else if( tag1 == readTag && tag2 == writeTag )
-      {
-        outOfOrder++;
-        //printf("?");
-      }
+      if( !r2 || !ok2 )
+        break;
     }
 
     printf(" client out of order=%zd\n", outOfOrder );
@@ -353,10 +341,95 @@ static void serverThreadProc( std::unique_ptr<grpc::Server> server )
   printf("About to finish\n");
 }
 
+struct ServerProcess
+{
+  grpc::CompletionQueue completionQueue_;
+  grpc::ServerCompletionQueue serverCompletionQueue_;
+  grpc::ServerContext serverContext_;
+  grpc::ServerAsyncReaderWriter<service::CommandResponse, service::CommandRequest> serverStream_;
+  service::MainControl::AsyncService* service_;
+
+  enum class State : uint8_t {
+    INITIAL,
+    READ,
+    WRITE,
+    FINISHED
+  };
+  
+  State m_state{ State::INITIAL };
+
+  struct CallState
+  {
+    bool initial_ = true;
+    bool reading_ = true;
+    bool finished_ = false;
+    service::CommandRequest request_;
+    service::CommandResponse response_;
+    void Compute()
+    {
+      response_.ResultId = request_.CommandId + 1;
+    }
+  };
+
+  ServerProcess( service::MainControl::AsyncService *service )
+    : serverStream_( &m_serverContext )
+    , service_( service )
+    , completionQueue_( cq )
+    , serverCompletionQueue_( cq )
+  {
+    auto callState = new CallState;
+    service_->RequestCommandStream( &serverContext_, &serverStream_, &completionQueue_, &serverCompletionQueue_, callState );
+  }
+
+  static void Process( CompletionQueue& completionQueue )
+  {
+    void* tag = nullptr;
+    bool ok = false;
+    while( completionQueue.Next( &tag, &ok ) )
+    {
+      auto callState = reinterpret_cast<CallState>( tag );
+      
+      if( callState->finished_ )
+      {
+        printf( "finished r=%d, ok=%d, tag=%p\n", r, ok, tag );
+        delete callState;
+        continue;
+      }
+
+      if( !ok )
+      {
+        callState->finished_ = false;
+        printf( "about to finish r=%d, ok=%d, tag=%p\n", r, ok, tag);
+        serviceStream_->Finish( grpc::Status::OK, callState );
+        continue;
+      }
+
+      if( callState->initial_ )
+      {
+        callState->inital_ = false;
+        serviceStream_->SendInitialMetadata( callState );
+        continue;  
+      }
+
+      if( callState->reading_ )
+      {
+        callState->reading_ = false;
+        serviceStream_->Read( &callState.request_, callState );
+        continue;
+      } 
+
+      callState->reading_ = true;
+      callState->Compute();
+      serviceStream_->Write( callState.response_, callState );      
+    }
+
+    printf("Process End\n");
+  }
+};
 
 static void asyncServerThreadProc( service::MainControl::AsyncService *service, std::unique_ptr<grpc::ServerCompletionQueue> serverCQ, std::string serverId )
 {
-  printf( "server: Starting...\n" );
+  printf( "server: Starting... %d\n", getpid() );
 
   grpc::ServerContext serverContext;
   grpc::ServerAsyncReaderWriter<service::CommandResponse, service::CommandRequest> serverStream( &serverContext );
@@ -395,46 +468,39 @@ static void asyncServerThreadProc( service::MainControl::AsyncService *service, 
     void* readTag = (void*) -3;
     void* writeTag = (void*) -4;
 
+    void* tag1 = nullptr;
+    bool ok1 = false;
     serverStream.Read( &request, readTag );
+    bool r1 = serverCQ->Next( &tag1, &ok1 );
+    if( !r1 || !ok1 || tag1 != readTag )
+    {
+      printf( "server read break - r1=%d ok1=%d tag1=%p readTag=%p\n", r1, ok1, tag1, readTag );
+      break;
+    }
+
     size_t command_id = request.command_id();
 
     if( command_id+1 != current )
       printf( "server command_id=%zd current=%zd diff=%zd\n", command_id, current, command_id - current );
 
     response.set_result_id( current );
+
     serverStream.Write( response, writeTag );
+    //printf("W");
+    void* tag2 = nullptr;
+    bool ok2 = false;
+    bool r2 = serverCQ->Next( &tag2, &ok2 );
+    if( !r2 || !ok2 )
+    {
+      printf( "server write break - r2=%d ok2=%d tag2=%p writeTag=%p\n", r2, ok2, tag2, writeTag );
+      break;
+    }
 
     current++;
 
-    void* tag1 = nullptr;
-    bool ok1 = false;
-
-    void* tag2 = nullptr;
-    bool ok2 = false;
-
-    //printf("R");
-    bool r1 = serverCQ->Next( &tag1, &ok1 );
-    if( !r1 || !ok1 )
-      break;
-
-    //printf("W");
-    bool r2 = serverCQ->Next( &tag2, &ok2 );
-    if( !r2 || !ok2 )
-      break;
-
-    if( (!r1 || !r2) || (!ok1 || !ok2) || !((tag1 == readTag && tag2 == writeTag) || (tag1 == writeTag && tag2 == readTag )))
-    {
-      printf( "Error, r1=%d, r2=%d, ok1=%d, ok2=%d, tag1=%p, tag2=%p, readTag=%p, writeTag=%p (server)\n", r1, r2, ok1, ok2, tag1, tag2, readTag, writeTag );
-    }
-    else if( tag1 == writeTag && tag2 == readTag )
-    {
-      outOfOrder ++;
-      //printf("@");
-    }
   }
 
   printf( " server: Served %zd queries out of order\n", outOfOrder );
-
 
   serverStream.Finish( grpc::Status::OK, (void*) -5 );
   {
@@ -459,13 +525,7 @@ int main( int argc, const char* argv[] )
   grpc::ResourceQuota serverResourceQuota{ "serverResourceQuota" };
   grpc::ResourceQuota clientResourceQuota{ "clientResourceQuota" };
 
-  serverResourceQuota.SetMaxThreads( 16 );
-  serverResourceQuota.Resize( 1024*1024*16 );//* 1024 * 1024 );
-  clientResourceQuota.SetMaxThreads( 16 );
-  clientResourceQuota.Resize( 1024*1024*16 );//* 1024 * 1024 );
-
   grpc::ServerBuilder serverBuilder;
-  serverBuilder.SetResourceQuota( serverResourceQuota );
   serverBuilder.SetDefaultCompressionAlgorithm(GRPC_COMPRESS_NONE);
   serverBuilder.AddListeningPort( serverAddr, grpc::InsecureServerCredentials() );
   service::MainControl::AsyncService theService;
@@ -477,20 +537,9 @@ int main( int argc, const char* argv[] )
   //auto serverCompletionQueue5 = serverBuilder.AddCompletionQueue();
   auto server = serverBuilder.BuildAndStart();
 
-  grpc::ChannelArguments channelArguments;
-  channelArguments.SetResourceQuota( clientResourceQuota );
-  channelArguments.SetCompressionAlgorithm(GRPC_COMPRESS_NONE);
-#if 1
-  CommandClient commandClient(server->InProcessChannel(channelArguments));
-#else
-  CommandClient commandClient(grpc::CreateCustomChannel(
-    serverAddr, grpc::InsecureChannelCredentials(), channelArguments
-  ));
-#endif
-
 //  std::thread( serverThreadProc, std::move(server) ).detach();
   auto st1{ std::thread( asyncServerThreadProc, &theService, std::move(serverCompletionQueue1), std::string("1") ) };
-  //auto st2{ std::thread( asyncServerThreadProc, &theService, std::move(serverCompletionQueue2), std::string("2") ) };
+  //auto st2{ std::thread( asyncServerThreadProc, &theService, std::move(serverCompletionQueue2), std::string("`") ) };
   //auto st3{ std::thread( asyncServerThreadProc, &theService, std::move(serverCompletionQueue3), std::string("3") ) };
   //auto st4{ std::thread( asyncServerThreadProc, &theService, std::move(serverCompletionQueue4), std::string("4") ) };
   //auto st5{ std::thread( asyncServerThreadProc, &theService, std::move(serverCompletionQueue5), std::string("5") ) };
@@ -499,18 +548,40 @@ int main( int argc, const char* argv[] )
   std::string testString{ "test" };
   auto t1 = std::chrono::steady_clock::now();
 #if 1
-  grpc::CompletionQueue completionQueue;
-  grpc::ClientContext clientContext;
-  service::CommandRequest request;
-  size_t batchSize = (16384*2+8192)*2;
-  printf("batchSize=%zd\n", batchSize);
-  std::vector<RequestWithResponse> requestsWithResponses;
-  auto t10 = std::chrono::steady_clock::now();
-  requestsWithResponses.resize( batchSize );
-  printf( "construction        time=%20.8f\n", (t10-t1).count()/1e9);
-  commandClient.IssueAsyncCommandStream( clientContext, requestsWithResponses, completionQueue );
-  auto t11 = std::chrono::steady_clock::now();
-  printf( "init                time=%20.8f\n", (t11-t10).count()/1e9);
+  std::thread threads[20];
+  for( auto&t : threads ) 
+  { 
+      auto serverPtr = server.get();
+      t = std::thread([serverPtr, &serverAddr](){
+        printf("<a>\n");
+        grpc::ChannelArguments channelArguments;
+        //channelArguments.SetResourceQuota( clientResourceQuota );
+        channelArguments.SetCompressionAlgorithm(GRPC_COMPRESS_NONE);
+      #if 0
+        CommandClient commandClient(serverPtr->InProcessChannel(channelArguments));
+      #else
+        CommandClient commandClient(grpc::CreateCustomChannel(
+          serverAddr, grpc::InsecureChannelCredentials(), channelArguments
+        ));
+      #endif
+
+        grpc::CompletionQueue completionQueue;
+        grpc::ClientContext clientContext;
+        service::CommandRequest request;
+        size_t batchSize = 4;//(16384*2+8192)*2;
+        printf("batchSize=%zd\n", batchSize);
+        std::vector<RequestWithResponse> requestsWithResponses;
+        //auto t10 = std::chrono::steady_clock::now();
+        requestsWithResponses.resize( batchSize );
+        //printf( "construction        time=%20.8f\n", (t10-t1).count()/1e9);
+        commandClient.IssueAsyncCommandStream( clientContext, requestsWithResponses, completionQueue );
+        printf("<b>\n");
+        //auto t11 = std::chrono::steady_clock::now();
+        // printf( "init                time=%20.8f\n", (t11-t10).count()/1e9);
+      });
+  }
+  for( auto&t : threads )
+    t.join();
 
 #elif 1
   grpc::CompletionQueue completionQueue;
@@ -546,6 +617,7 @@ int main( int argc, const char* argv[] )
   auto t2 = std::chrono::steady_clock::now();
   printf( "end %20.8f\n", (t2-t1).count()/1e9);
 
+  serverCompletionQueue1.get()->Shutdown();
   st1.join();
   auto t3 = std::chrono::steady_clock::now();
   printf( "after join %20.8f\n", (t3-t1).count()/1e9);
@@ -553,6 +625,5 @@ int main( int argc, const char* argv[] )
   //st3.join();
   //st4.join();
   //st5.join();
-  //serverCompletionQueue1.get()->Shutdown();
   return 0;
 }

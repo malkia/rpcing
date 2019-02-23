@@ -4,7 +4,9 @@ load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
 load("@io_grpc_grpc_java//:java_grpc_library.bzl", "java_grpc_library")
 load("@io_bazel_rules_closure//closure:defs.bzl", "closure_js_binary", "closure_js_library", "closure_js_test", "closure_proto_library")
 load("@build_bazel_rules_nodejs//:defs.bzl", "jasmine_node_test", "nodejs_binary")
-
+load("@io_bazel_rules_rust//proto:proto.bzl", "rust_grpc_library")
+load("@io_bazel_rules_rust//rust:rust.bzl", "rust_binary")
+load("@io_bazel_rules_rust//proto:toolchain.bzl", RUST_GRPC_COMPILE_DEPS = "GRPC_COMPILE_DEPS")
 load(":lizard.bzl", "bask")
 #bask()
 
@@ -23,9 +25,9 @@ closure_js_library(
 
 closure_js_binary(
     name = "kim_bin",
-    deps = [":kim_lib"],
     language = "ECMASCRIPT3",
     output_wrapper = "(function(){%output%}).call(this);",
+    deps = [":kim_lib"],
 )
 
 closure_proto_library(
@@ -52,7 +54,19 @@ java_grpc_library(
 cc_binary(
     name = "test",
     srcs = ["test.cpp"],
-    deps = ["@com_github_grpc_grpc//:grpc++", ":service_grpc_proto"],
+    deps = [
+        ":service_grpc_proto",
+        "@com_github_grpc_grpc//:grpc++",
+    ],
+)
+
+cc_binary(
+    name = "bidi",
+    srcs = ["bidi.cpp"],
+    deps = [
+        ":service_grpc_proto",
+        "@com_github_grpc_grpc//:grpc++",
+    ],
 )
 
 py_binary(
@@ -78,21 +92,32 @@ sh_binary(
 #)
 
 go_binary(
-  name = "ken",
-  srcs = [ "ken.go" ],
-  deps = [
-    "@com_github_golang_protobuf//proto:go_default_library",
-    "@org_golang_google_grpc//:go_default_library",
-    ":go_grpc"
-  ]
+    name = "ken",
+    srcs = ["ken.go"],
+    deps = [
+        ":go_grpc",
+        "@com_github_golang_protobuf//proto:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+    ],
 )
 
 go_proto_library(
     name = "go_grpc",
-    compilers = [ "@io_bazel_rules_go//proto:go_grpc" ],
+    compilers = ["@io_bazel_rules_go//proto:go_grpc"],
     importpath = "github.com/malkia/rpcing",
-    proto = ":service_proto"
+    proto = ":service_proto",
     #protos = [ ":service_proto" ],
 )
 
 #bask()
+
+rust_grpc_library(
+    name = "rust_service_proto",
+    deps = [":service_proto"],
+)
+
+rust_binary(
+    name = "hook",
+    srcs = ["hook.rs"],
+    deps = [":rust_service_proto"] + RUST_GRPC_COMPILE_DEPS,
+)
