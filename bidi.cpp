@@ -1,32 +1,36 @@
 #include "service.grpc.pb.h"
 #include <grpcpp/grpcpp.h>
-#include <stdio.h>
-#include <thread>
-#include <chrono>
+
 #include <assert.h>
-#include <memory>
+#include <stdio.h>
 #include <unistd.h>
-#include <string>
-#include <future>
-#include <vector>
+
 #include <atomic>
-#include <list>
+#include <chrono>
+#include <thread>
+#include <memory>
 #include <mutex>
+#include <string>
+#include <vector>
+
+enum {
+    COUNTER_PERIODS = 8,
+};
 
 struct Counter;
-static std::list<Counter*> counters_;
+static std::atomic<int> counter_period_;
+static std::vector<Counter*> counters_;
 static std::mutex counters_mutex_;
 
 struct Counter
 {
-    std::atomic<size_t> counter_;
+    std::atomic<size_t> counter_[COUNTER_PERIODS];
     const char* name_;
     const char* func_;
     const char* file_;
     int line_;
     explicit Counter( const char* name, const char* func, const char* file, int line )
-        : counter_(0)
-        , name_(name)
+        : name_(name)
         , func_(func)
         , file_(file)
         , line_(line)
@@ -36,15 +40,38 @@ struct Counter
     }
 };
 
-#define COUNTER(n) do { static Counter counter(n, __FUNCTION__, __FILE__, __LINE__); counter.counter_++; } while( false )
+#define COUNTER(n) do { static Counter counter(n, __FUNCTION__, __FILE__, __LINE__); counter.counter_[counter_period_]++; } while( false )
+
+void NextCounterPeriod()
+{
+    counter_period_++;
+}
+
+static void MySleep(int amount)
+{
+      std::this_thread::sleep_for(std::chrono::milliseconds(rand()%100==0?1:0));
+//    std::this_thread::sleep_for(std::chrono::milliseconds(rand()%5));
+//    std::this_thread::sleep_for(std::chrono::milliseconds(rand()%(1+rand()%(rand()%(amount/10+1)+1))));
+}
 
 struct PrintCounters
 {
     ~PrintCounters()
     {
+        std::stable_sort( counters_.begin(), counters_.end(), []( Counter* a, Counter* b ) -> bool {
+            return std::string(a->name_) < std::string(b->name_);
+        });
         for( auto counter : counters_ )
         {
-            printf( "%s: %zd\n", counter->name_, counter->counter_.load() );
+            printf( "%-36.36s ", counter->name_ );
+            size_t total = 0;
+            for( auto period = 0; period < COUNTER_PERIODS; period++ )
+            {
+                size_t counter_value = counter->counter_[period].load();
+                printf( "%8zd ", counter_value );
+                total += counter_value;
+            }
+            printf( "|%8zd\n", total );
         }
     }
 };
@@ -72,69 +99,86 @@ public:
     , cq_( cq )
     , state_( State::INITIAL )
   {
-    COUNTER("CallData(Constructor)");
+    COUNTER("CallData::CallData().TOTAL");
     service->RequestCommandStream( &context_, &stream_, cq_, cq_, this );
   }
 
   void Next() 
   {
-    COUNTER("CallData::Next(beforSwitch)");
+    COUNTER("CallData::Next().TOTAL");
     switch( state_ ) 
     {
-        default:
-            COUNTER("CallData::Next(default) (SHOULD NOT HAPPEN!)");
-            return;
-
-        case State::FINISHED:
-            COUNTER("CallData::Next(FINISHED)");
-            delete this;
-            return;
-
         case State::INITIAL:
-            COUNTER("CallData::Next(INITIAL)");
+            COUNTER("CallData::Next(1_INITIAL)");
             new CallData(service_, cq_);
             state_ = State::READ;
             stream_.SendInitialMetadata( this );
-            return;
+            break;
 
         case State::READ:
-            COUNTER("CallData::Next(READ)");
+            COUNTER("CallData::Next(2_READ)");
             state_ = State::WRITE;
+            MySleep(500);
             stream_.Read( &request_, this );
-            return;
+            break;
   
         case State::WRITE:
-            COUNTER("CallData::Next(WRITE)");
+            COUNTER("CallData::Next(3_WRITE)");
             state_ = State::READ;
-            service::CommandResponse response;
-            stream_.Write( response, this );
-            return;
+            {
+                service::CommandResponse response;
+                MySleep(500);
+                stream_.Write( response, this );
+            }
+            break;
+
+        case State::FINISHED:
+            COUNTER("CallData::Next(4_FINISHED)");
+            delete this;
+            break;
+
+        default:
+            assert(0);
+            break;
     }
-    COUNTER("CallData::Next(ShouldNotBeHere) (SHOULD NOT HAPPEN!)");
   }
 
   void Stop()
   {
-      COUNTER("CallData::Stop(beforeCheck)");
-      if( state_ == State::INITIAL )      
-      {
-          COUNTER("CallData::Stop(INITIAL)");
-          delete this;
-          return;
-      }
-      else if( state_ == State::FINISHED )
-      {
-          COUNTER("CallData::Stop(FINISHED)");
-          delete this;
-          return;
-      }
-      else if( state_ == State::READ )
-        COUNTER("CallData::Stop(READ)");
-      else if( state_ == State::WRITE )
-        COUNTER("CallData::Stop(WRITE)");
-      else
-        COUNTER("CallData::Stop(SHOULD NOT HAPPEN!)");
+    COUNTER("CallData::Stop().TOTAL");
+    bool delete_this = false;
+
+    switch( state_ )
+    {
+        case State::INITIAL:
+            COUNTER("CallData::Stop(1_INITIAL)");
+            delete_this = true;
+            break;
+
+        case State::READ:
+            COUNTER("CallData::Stop(2_READ)");
+            break;
+
+        case State::WRITE:
+            COUNTER("CallData::Stop(3_WRITE)");
+            break;
+
+        case State::FINISHED:
+            COUNTER("CallData::Stop(4_FINISHED)");
+            delete_this = true;
+            break;
+
+        default:
+            assert(0);
+            break;
+    }
       
+    if( delete_this )
+    {
+        delete this;
+        return;
+    }
+
     state_ = State::FINISHED;
     stream_.Finish( grpc::Status::OK, this );
   }
@@ -145,55 +189,45 @@ struct BaseServer
     std::unique_ptr<grpc::Server> server_;
     std::unique_ptr<grpc::ServerCompletionQueue> cq_;
     service::MainControl::AsyncService service_;
-    std::thread t;
+    std::thread polling_thread_;
 
     BaseServer( const std::string& addr )
     {
-        printf("server about to start...\n");
+        printf("server: Starting...\n");
         grpc::ServerBuilder serverBuilder;
         cq_ = serverBuilder.AddCompletionQueue();
         serverBuilder.AddListeningPort( addr, grpc::InsecureServerCredentials() );
         serverBuilder.RegisterService( &service_ );
         server_ = serverBuilder.BuildAndStart();
-        printf("server started...\n");
-        t = std::thread([this]{
-            printf( "server start (begin)\n");
-
+        polling_thread_ = std::thread([this]{
+            printf("  server: Polling...\n");
             void* tag; bool ok;
             new CallData( &service_, cq_.get() );
             while( cq_->Next( &tag, &ok ) )
             {
-                COUNTER("ServerCQ(Next)");
+                COUNTER("PollCQ(Next).TOTAL");
                 auto callData = (CallData*) tag;
                 if( !ok )
                 {
-                    COUNTER("ServerCQ(Next).NotOK");
+                    COUNTER("PollCQ(Next).NOT_OK");
                     callData->Stop();
+                    continue;
                 }
-                else
-                {
-                    COUNTER("ServerCQ(Next).OK");
-                    callData->Next();
-                }
+                callData->Next();
             }
+            printf("  server: Finished polling...\n");
         });
     }
 
     ~BaseServer()
     {
+        printf("server: Shutting down...\n");
         server_->Shutdown();
+        printf("server: Shut down! Draining the queue...\n");
         cq_->Shutdown();
-        for(;;) {
-            COUNTER("ServerCQ(Drain).Before");
-            void* ignored_tag = (void*) 1;
-            bool ignored_ok;
-            auto r = cq_->Next( &ignored_tag, &ignored_ok );
-            printf( "server drain: r=%d ignored_ok=%d ignored_ta=%p\n", r, ignored_ok, ignored_tag );
-            if( !r )
-                break;
-            COUNTER("ServerCQ(Drain).After");
-        }
-        t.join();
+        printf("server: Waiting to drain...\n");
+        polling_thread_.join();
+        printf("server: Drained the queue! Finished...\n");
     }
 };
 
@@ -221,73 +255,129 @@ struct Client
             
             grpc::ClientContext ctx;
             grpc::CompletionQueue cq;
+
+            MySleep(1000);
+
             auto rpc = stub_->PrepareAsyncCommandStream( &ctx, &cq );
 
             void* tag; bool ok;
 
-            COUNTER("Client(StartCall)");
+            MySleep(1000);
+
+            COUNTER("Client(1_StartCall).TOTAL");
             rpc->StartCall( (void*) -1 );
-            if( !cq.Next( &tag, &ok ) || !ok || tag != (void*) -1 )
+            tag = (void*) 1;
+            if( !cq.Next( &tag, &ok ) )
             {
-                COUNTER("Client(StartCall).FAILURES");
-                printf( "  client(%d) start call error: tag=%p ok=%d\n", index_, tag, ok );
+                assert( tag == (void*) 1 );
+                COUNTER("Client(1_StartCall).CANCELED");
+                return;
+            }
+            assert( tag == (void*) -1 );
+            if( !ok )
+            {
+                COUNTER("Client(1_StartCall).NOT_OK");
                 return;
             }
 
-            COUNTER("Client(ReadInitialMetadata)");
+            MySleep(1000);
+
+            COUNTER("Client(2_ReadInitialMetadata).TOTAL");
             rpc->ReadInitialMetadata( (void*) -2 );
-            if( !cq.Next( &tag, &ok ) || !ok || tag != (void*) -2 )
+            tag = (void*) 2;
+            if( !cq.Next( &tag, &ok ) )
             {
-                COUNTER("Client(ReadInitialMetadata).FAILURES");
-                printf( "  client(%d) error: tag=%p ok=%d\n", index_, tag, ok );
+                assert( tag == (void*) 2 );
+                COUNTER("Client(2_ReadInitialMetadata).CANCELED");
+                return;
+            }
+            assert( tag == (void*) -2 );
+            if( !ok )
+            {
+                COUNTER("Client(2_ReadInitialMetadata).NOT_OK");
                 return;
             }
             
-            //printf("  client: read initial metadata\n" );
-
             service::CommandRequest req;
             service::CommandResponse resp;
 
-            for( int i=0; i<40; i++) 
+            MySleep(1000);
+
+            for( int i=0; i<4; i++) 
             {
-                COUNTER("Client(Write)");
+                COUNTER("Client(3_Write).TOTAL");
                 rpc->Write( req, (void*) -3 );
-                if( !cq.Next( &tag, &ok ) || !ok || tag != (void*) -3 )
+                tag = (void*) 3;
+                if( !cq.Next( &tag, &ok ) )
                 {
-                    COUNTER("Client(Write).FAILURES");
-                    printf( "  client(%d) write error: tag=%p ok=%d\n", index_, tag, ok );
+                    assert( tag == (void*) 3 );
+                    COUNTER("Client(3_Write).CANCELED");
                     return;
                 }
-        
-                COUNTER("Client(Read)");
+                assert( tag == (void*) -3 );
+                if( !ok )
+                {
+                    COUNTER("Client(3_Write).NOT_OK");
+                    return;
+                }
+
+                MySleep(1000/40);  
+
+                COUNTER("Client(4_Read).TOTAL");
                 rpc->Read( &resp, (void*) -4 );
-                if( !cq.Next( &tag, &ok ) || !ok || tag != (void*) -4 )
+                tag = (void*) 4;
+                if( !cq.Next( &tag, &ok ) )
                 {
-                    COUNTER("Client(Read).FAILURES");
-                    printf( "  client(%d) read error: tag=%p ok=%d\n", index_, tag, ok );
+                    assert( tag == (void*) 4 );
+                    COUNTER("Client(4_Read).CANCELED");
                     return;
                 }
+                assert( tag == (void*) -4 );
+                if( !ok )
+                {
+                    COUNTER("Client(4_Read).NOT_OK");
+                    return;
+                }
+
+                MySleep(1000/40);  
             }
 
-            COUNTER("Client(WritesDone)");
+            MySleep(1000);  
+
+            COUNTER("Client(5_WritesDone).TOTAL");
             rpc->WritesDone( (void*) -5 );
-            if( !cq.Next( &tag, &ok ) || !ok || tag != (void*) -5 )
+            tag = (void*) 5;
+            if( !cq.Next( &tag, &ok ) )
             {
-                COUNTER("Client(WritesDone).FAILURES");
-                printf( "  client(%d) writes done error: tag=%p ok=%d\n", index_, tag, ok );
+                assert( tag == (void*) 5 );
+                COUNTER("Client(5_WritesDone).CANCELED");
+                return;
+            }
+            assert( tag == (void*) -5 );
+            if( !ok )
+            {
+                COUNTER("Client(5_WritesDone).NOT_OK");
                 return;
             }
 
-            COUNTER("Client(Finish)");
+            MySleep(1000);  
+
+            COUNTER("Client(6_Finish).TOTAL");
             grpc::Status status;
             rpc->Finish( &status, (void*) -6 );
-            if( !cq.Next( &tag, &ok ) || !ok || tag != (void*) -6 )
+            tag = (void*) 6;
+            if( !cq.Next( &tag, &ok ) )
             {
-                COUNTER("Client(Finish).FAILURES");
-                printf( "  client(%d) finish error: tag=%p ok=%d\n", index_, tag, ok );
+                assert( tag == (void*) 6);
+                COUNTER("Client(6_Finish).CANCELED");
                 return;
             }
-            COUNTER("Client(FINISHED)");
+            assert( tag == (void*) -6 );
+            if( !ok )
+            {
+                COUNTER("Client(6_Finish).NOT_OK");
+                return;
+            }
         });
     }
 
@@ -314,23 +404,30 @@ int main( int argc, const char* argv[] )
 {
     std::string addr = "localhost:56789";
     std::vector<Client> clients;
-    int clientCount = 1000;
+    int clientCount = 500;
     // Not really detached, just joining (Join2) them after we shutdown the server
-    int detachedClients = clientCount / 3;
+    int detachedClients = clientCount-1;//clientCount - 1;//1000;//clientCount/3;
+    for( auto clientIndex = 0; clientIndex < clientCount; clientIndex++ )
+        clients.emplace_back( addr, clientIndex );
     {
         BaseServer server( addr );
         for( auto clientIndex = 0; clientIndex < clientCount; clientIndex++ )
-            clients.emplace_back( addr, clientIndex );
-        for( auto clientIndex = 0; clientIndex < clientCount; clientIndex++ )
             clients[clientIndex].Call();
+        NextCounterPeriod();
+        MySleep(10);
         for( auto clientIndex = 0; clientIndex < clientCount-detachedClients; clientIndex++ )
             clients[clientIndex].Join();
-        PrintCounters printCounters;
+        NextCounterPeriod();
+        MySleep(10);
+        // server shutdowns here by RAII semantics... detached clients may suffer losses ;)
     }
-    std::this_thread::sleep_for(std::chrono::seconds(10));
+    NextCounterPeriod();
+    MySleep(10);
     for( auto clientIndex = clientCount-detachedClients; clientIndex < clientCount; clientIndex++ )
         clients[clientIndex].Join2();
-    printf("\n");
+    {
     PrintCounters printCountersAfterJoin2;
+    }
+    abort();
 }
 

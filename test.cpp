@@ -374,17 +374,15 @@ struct ServerProcess
   ServerProcess( service::MainControl::AsyncService *service )
     : serverStream_( &m_serverContext )
     , service_( service )
-    , completionQueue_( cq )
-    , serverCompletionQueue_( cq )
   {
     auto callState = new CallState;
     service_->RequestCommandStream( &serverContext_, &serverStream_, &completionQueue_, &serverCompletionQueue_, callState );
   }
 
-  static void Process( CompletionQueue& completionQueue )
+  static void Process( grpc::ServerAsyncReaderWriter<service::CommandResponse, service::CommandRequest>& stream, CompletionQueue& completionQueue )
   {
-    void* tag = nullptr;
-    bool ok = false;
+    void* tag;
+    bool ok;
     while( completionQueue.Next( &tag, &ok ) )
     {
       auto callState = reinterpret_cast<CallState>( tag );
@@ -400,27 +398,27 @@ struct ServerProcess
       {
         callState->finished_ = false;
         printf( "about to finish r=%d, ok=%d, tag=%p\n", r, ok, tag);
-        serviceStream_->Finish( grpc::Status::OK, callState );
+        stream.Finish( grpc::Status::OK, callState );
         continue;
       }
 
       if( callState->initial_ )
       {
         callState->inital_ = false;
-        serviceStream_->SendInitialMetadata( callState );
+        stream.SendInitialMetadata( callState );
         continue;  
       }
 
       if( callState->reading_ )
       {
         callState->reading_ = false;
-        serviceStream_->Read( &callState.request_, callState );
+        stream.Read( &callState.request_, callState );
         continue;
       } 
 
       callState->reading_ = true;
       callState->Compute();
-      serviceStream_->Write( callState.response_, callState );      
+      stream.Write( callState.response_, callState );      
     }
 
     printf("Process End\n");
