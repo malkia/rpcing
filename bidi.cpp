@@ -45,11 +45,12 @@ struct Counter
 void NextCounterPeriod()
 {
     counter_period_++;
+    assert(counter_period_<COUNTER_PERIODS);
 }
 
 static void MySleep(int amount)
 {
-      std::this_thread::sleep_for(std::chrono::milliseconds(rand()%10==0?1:0));
+//      std::this_thread::sleep_for(std::chrono::milliseconds(rand()%10==0?1:0));
 //    std::this_thread::sleep_for(std::chrono::milliseconds(rand()%5));
 //    std::this_thread::sleep_for(std::chrono::milliseconds(rand()%(1+rand()%(rand()%(amount/10+1)+1))));
 }
@@ -244,14 +245,15 @@ struct Client
     {
         grpc::ChannelArguments channelArguments;
         channel_ = grpc::CreateCustomChannel(
-          addr, grpc::InsecureChannelCredentials(), channelArguments
+          addr_, grpc::InsecureChannelCredentials(), channelArguments
         );
         stub_ = service::MainControl::NewStub( channel_ );
     }
 
     void Call()
     {
-        thread_ = std::thread([this]{
+        thread_ = std::thread([this]{ 
+          for(auto i=0;i<10;i++) {
             
             grpc::ClientContext ctx;
             grpc::CompletionQueue cq;
@@ -378,7 +380,7 @@ struct Client
                 COUNTER("Client(6_Finish).NOT_OK");
                 return;
             }
-        });
+        }});
     }
 
     void Join()
@@ -406,19 +408,11 @@ int main( int argc, const char* argv[] )
     std::vector<Client> clients;
     int clientCount = 500;
     // Not really detached, just joining (Join2) them after we shutdown the server
-    int detachedClients = clientCount-1;//clientCount - 1;//1000;//clientCount/3;
+    int detachedClients = 0;//clientCount-1;//clientCount - 1;//1000;//clientCount/3;
     for( auto clientIndex = 0; clientIndex < clientCount; clientIndex++ )
         clients.emplace_back( addr, clientIndex );
     {
         BaseServer server( addr );
-        for( auto clientIndex = 0; clientIndex < clientCount; clientIndex++ )
-            clients[clientIndex].Call();
-        NextCounterPeriod();
-        MySleep(10);
-        for( auto clientIndex = 0; clientIndex < clientCount; clientIndex++ )
-            clients[clientIndex].Call();
-        NextCounterPeriod();
-        MySleep(10);
         for( auto clientIndex = 0; clientIndex < clientCount; clientIndex++ )
             clients[clientIndex].Call();
         NextCounterPeriod();
