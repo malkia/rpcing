@@ -415,6 +415,14 @@ int main( int argc, const char* argv[] )
             clients[clientIndex].Call();
         NextCounterPeriod();
         MySleep(10);
+        for( auto clientIndex = 0; clientIndex < clientCount; clientIndex++ )
+            clients[clientIndex].Call();
+        NextCounterPeriod();
+        MySleep(10);
+        for( auto clientIndex = 0; clientIndex < clientCount; clientIndex++ )
+            clients[clientIndex].Call();
+        NextCounterPeriod();
+        MySleep(10);
         for( auto clientIndex = 0; clientIndex < clientCount-detachedClients; clientIndex++ )
             clients[clientIndex].Join();
         NextCounterPeriod();
