@@ -49,7 +49,7 @@ void NextCounterPeriod()
 
 static void MySleep(int amount)
 {
-      std::this_thread::sleep_for(std::chrono::milliseconds(rand()%100==0?1:0));
+      std::this_thread::sleep_for(std::chrono::milliseconds(rand()%10==0?1:0));
 //    std::this_thread::sleep_for(std::chrono::milliseconds(rand()%5));
 //    std::this_thread::sleep_for(std::chrono::milliseconds(rand()%(1+rand()%(rand()%(amount/10+1)+1))));
 }
@@ -65,7 +65,7 @@ struct PrintCounters
         {
             printf( "%-36.36s ", counter->name_ );
             size_t total = 0;
-            for( auto period = 0; period < COUNTER_PERIODS; period++ )
+            for( auto period = 0; period <= counter_period_; period++ )
             {
                 size_t counter_value = counter->counter_[period].load();
                 printf( "%8zd ", counter_value );
