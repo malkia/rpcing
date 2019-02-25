@@ -141,3 +141,12 @@ bazel_version(name = "bazel_version")
 
 load("@io_bazel_rules_rust//proto:repositories.bzl", "rust_proto_repositories")
 rust_proto_repositories()
+
+GFLAGS_VERSION="2.2.2"
+GFLAGS_SHA256="245314f19b558d38e91a875c3b0a2d03443669ccca37d6ef59d1a44731bb1c8c"
+http_archive(
+    name = "com_github_gflags_gflags",
+    sha256 = GFLAGS_SHA256,
+    strip_prefix = "gflags-" + GFLAGS_VERSION,
+    url = "https://github.com/gflags/gflags/archive/v" + GFLAGS_VERSION + ".tar.gz",
+)

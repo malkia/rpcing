@@ -1,5 +1,6 @@
 #include "service.grpc.pb.h"
 #include <grpcpp/grpcpp.h>
+#include <gflags/gflags.h>
 
 #include <assert.h>
 #include <stdio.h>
@@ -12,6 +13,12 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <memory>
+
+DEFINE_bool(stats, true, "Print stats");
+DEFINE_string(listen, "localhost:56789", "Listens on grpc endpoint.");
+DEFINE_string(connect, "localhost:56789", "Connect to grpc endpoint.");
+DEFINE_int32(listen_secs, 1, "Listen time in seconds");
 
 enum {
     COUNTER_PERIODS = 8,
@@ -305,7 +312,7 @@ struct Client
 
             MySleep(1000);
 
-            for( int i=0; i<4; i++) 
+            for( int i=0; i<40; i++) 
             {
                 COUNTER("Client(3_Write).TOTAL");
                 rpc->Write( req, (void*) -3 );
@@ -402,17 +409,28 @@ struct Client
     }
 };
 
-int main( int argc, const char* argv[] )
+int main( int argc, char* argv[] )
 {
-    std::string addr = "localhost:56789";
+    gflags::ParseCommandLineFlags(&argc, &argv, true);
+
+    bool shouldConnect = (FLAGS_connect != ".");
+    bool shouldListen = (FLAGS_listen != ".");
+
     std::vector<Client> clients;
-    int clientCount = 500;
+    int clientCount = 50;
+    clients.reserve(clientCount);
     // Not really detached, just joining (Join2) them after we shutdown the server
     int detachedClients = 0;//clientCount-1;//clientCount - 1;//1000;//clientCount/3;
-    for( auto clientIndex = 0; clientIndex < clientCount; clientIndex++ )
-        clients.emplace_back( addr, clientIndex );
+    if( shouldConnect )
+        for( auto clientIndex = 0; clientIndex < clientCount; clientIndex++ )
+            clients.emplace_back( FLAGS_connect, clientIndex );
+
+    std::unique_ptr<BaseServer> server;
+    if( shouldListen )
+        server = std::unique_ptr<BaseServer>( new BaseServer( FLAGS_listen ) );
+
+    if( shouldConnect )
     {
-        BaseServer server( addr );
         for( auto clientIndex = 0; clientIndex < clientCount; clientIndex++ )
             clients[clientIndex].Call();
         NextCounterPeriod();
@@ -421,15 +439,28 @@ int main( int argc, const char* argv[] )
             clients[clientIndex].Join();
         NextCounterPeriod();
         MySleep(10);
-        // server shutdowns here by RAII semantics... detached clients may suffer losses ;)
     }
-    NextCounterPeriod();
-    MySleep(10);
-    for( auto clientIndex = clientCount-detachedClients; clientIndex < clientCount; clientIndex++ )
-        clients[clientIndex].Join2();
+
+    if( shouldListen )
     {
-    PrintCounters printCountersAfterJoin2;
+        std::this_thread::sleep_for(std::chrono::seconds(FLAGS_listen_secs));
+        server.reset();
     }
+    
+    if( shouldConnect )
+    {
+        NextCounterPeriod();
+        MySleep(10);
+        for( auto clientIndex = clientCount-detachedClients; clientIndex < clientCount; clientIndex++ )
+            clients[clientIndex].Join2();
+    }
+
+    if( FLAGS_stats )
+    {
+        PrintCounters printCountersAfterJoin2;
+    }
+
+    // Avoid expensive deallocation & destruction.
     abort();
 }
 
