@@ -3,6 +3,15 @@ workspace( name = "rpcing" )
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load(":lizard.bzl", "bask", "grub")
 
+GFLAGS_VERSION="2.2.2"
+GFLAGS_SHA256="19713a36c9f32b33df59d1c79b4958434cb005b5b47dc5400a7a4b078111d9b5"
+http_archive(
+    name = "com_github_gflags_gflags",
+    urls = [ "https://github.com/gflags/gflags/archive/v" + GFLAGS_VERSION + ".zip" ],
+    strip_prefix = "gflags-" + GFLAGS_VERSION,
+    sha256 = GFLAGS_SHA256,
+)
+
 PROTOBUF_VERSION="3.6.1.3"
 PROTOBUF_SHA256="73fdad358857e120fd0fa19e071a96e15c0f23bb25f85d3f7009abfd4f264a2a"
 http_archive(
@@ -130,7 +139,7 @@ http_archive(
     name = "bazel_skylib",
     sha256 = "eb5c57e4c12e68c0c20bc774bfbc60a568e800d025557bc4ea022c6479acc867",
     strip_prefix = "bazel-skylib-0.6.0",
-    url = "https://github.com/bazelbuild/bazel-skylib/archive/0.6.0.tar.gz",
+    urls = [ "https://github.com/bazelbuild/bazel-skylib/archive/0.6.0.tar.gz" ],
 )
 
 load("@io_bazel_rules_rust//rust:repositories.bzl", "rust_repositories")
@@ -142,11 +151,3 @@ bazel_version(name = "bazel_version")
 load("@io_bazel_rules_rust//proto:repositories.bzl", "rust_proto_repositories")
 rust_proto_repositories()
 
-GFLAGS_VERSION="2.2.2"
-GFLAGS_SHA256="245314f19b558d38e91a875c3b0a2d03443669ccca37d6ef59d1a44731bb1c8c"
-http_archive(
-    name = "com_github_gflags_gflags",
-    sha256 = GFLAGS_SHA256,
-    strip_prefix = "gflags-" + GFLAGS_VERSION,
-    url = "https://github.com/gflags/gflags/archive/v" + GFLAGS_VERSION + ".tar.gz",
-)
