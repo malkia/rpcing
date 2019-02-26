@@ -5,15 +5,17 @@ from bazel_tools.tools.python.runfiles import runfiles
 binary_name = sys.argv[1].replace("./", "")
 binary = runfiles.Create().Rlocation( "rpcing/" + binary_name )
 
-server = subprocess.Popen([binary, "--connect", ".", "--listen_secs", "10"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-clientCount = 100
+server = subprocess.Popen([binary, "--connect", ".", "--listen_ms", "1000"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+clientCount = 5
 
 client_procs = []
 client_outs = []
 client_errs = []
 
 for client in range(clientCount):
-    client_procs.append( subprocess.Popen([binary, "--listen", "."], stdout=subprocess.PIPE, stderr=subprocess.PIPE) )
+    proc = subprocess.Popen([binary, "--listen", "."], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    client_procs.append( proc )
+    print( proc )
 
 for client in range(clientCount):
     out, err = client_procs[client].communicate()

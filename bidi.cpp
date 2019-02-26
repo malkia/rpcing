@@ -19,7 +19,7 @@
 DEFINE_bool(stats, true, "Print stats");
 DEFINE_string(listen, "localhost:56789", "Listens on grpc endpoint.");
 DEFINE_string(connect, "localhost:56789", "Connect to grpc endpoint.");
-DEFINE_int32(listen_secs, 1, "Listen time in seconds");
+DEFINE_int32(listen_ms, 1000, "Listen time in milliseconds");
 
 enum {
     COUNTER_PERIODS = 8,
@@ -444,7 +444,7 @@ int main( int argc, char* argv[] )
 
     if( shouldListen )
     {
-        std::this_thread::sleep_for(std::chrono::seconds(FLAGS_listen_secs));
+        std::this_thread::sleep_for(std::chrono::milliseconds(FLAGS_listen_ms));
         server.reset();
     }
     
