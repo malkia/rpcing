@@ -70,12 +70,31 @@ cc_binary(
     ],
 )
 
+genrule(
+    name = "bidi2bidi_data",
+    outs = ["bidi2bidi.txt"],
+    cmd = "echo -n $(execpath :bidi)>$@",
+    tools = [ ":bidi" ]
+)
+
+py_binary(
+    name = "py_bidi",
+    args = [ "$(location :bidi)" ],
+    srcs = [ "py_bidi.py" ],
+    data = [ ":bidi" ],
+    deps = ["@bazel_tools//tools/python/runfiles" ],
+)
+
 sh_binary(
     name = "bidi2bidi",
+    args = [ 
+        "$(execpath :bidi2bidi_data)" ,
+        "$(location :bidi2bidi_data)", 
+        "$(rootpath :bidi2bidi_data)" ,
+    ],
+    data = [ ":bidi2bidi_data" ],
     srcs = [ "bidi2bidi.sh" ],
-    deps = [
-        ":bidi"
-    ]
+    deps = [ "@bazel_tools//tools/bash/runfiles" ]
 )
 
 py_binary(

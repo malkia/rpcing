@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <cstdlib>
 
 DEFINE_bool(stats, true, "Print stats");
 DEFINE_string(listen, "localhost:56789", "Listens on grpc endpoint.");
@@ -461,6 +462,6 @@ int main( int argc, char* argv[] )
     }
 
     // Avoid expensive deallocation & destruction.
-    abort();
+    std::quick_exit(0);
 }
 
