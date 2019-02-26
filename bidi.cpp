@@ -20,6 +20,7 @@ DEFINE_bool(stats, true, "Print stats");
 DEFINE_string(listen, "127.0.0.1:56789", "Listens on grpc endpoint.");
 DEFINE_string(connect, "127.0.0.1:56789", "Connect to grpc endpoint.");
 DEFINE_int32(listen_ms, 1000, "Listen time in milliseconds");
+DEFINE_bool(detached, false, "Should detach all clients");
 
 enum {
     COUNTER_PERIODS = 8,
@@ -260,11 +261,10 @@ struct Client
 
     void Call()
     {
-        thread_ = std::thread([this]{ 
+        thread_ = std::thread([this]{
+          grpc::CompletionQueue cq;
           for(auto i=0;i<10;i++) {
-            
             grpc::ClientContext ctx;
-            grpc::CompletionQueue cq;
 
             MySleep(1000);
 
@@ -421,7 +421,7 @@ int main( int argc, char* argv[] )
     int clientCount = 50;
     clients.reserve(clientCount);
     // Not really detached, just joining (Join2) them after we shutdown the server
-    int detachedClients = 0;//clientCount-1;//clientCount - 1;//1000;//clientCount/3;
+    int detachedClients = FLAGS_detached ? clientCount : 0;
     if( shouldConnect )
         for( auto clientIndex = 0; clientIndex < clientCount; clientIndex++ )
             clients.emplace_back( FLAGS_connect, clientIndex );
