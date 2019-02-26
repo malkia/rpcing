@@ -17,8 +17,8 @@
 #include <cstdlib>
 
 DEFINE_bool(stats, true, "Print stats");
-DEFINE_string(listen, "localhost:56789", "Listens on grpc endpoint.");
-DEFINE_string(connect, "localhost:56789", "Connect to grpc endpoint.");
+DEFINE_string(listen, "127.0.0.1:56789", "Listens on grpc endpoint.");
+DEFINE_string(connect, "127.0.0.1:56789", "Connect to grpc endpoint.");
 DEFINE_int32(listen_ms, 1000, "Listen time in milliseconds");
 
 enum {
@@ -460,6 +460,9 @@ int main( int argc, char* argv[] )
     {
         PrintCounters printCountersAfterJoin2;
     }
+
+    fflush(stdout);
+    fflush(stderr);
 
     // Avoid expensive deallocation & destruction.
     std::quick_exit(0);
