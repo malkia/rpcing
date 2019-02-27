@@ -22,6 +22,10 @@ DEFINE_string(connect, "127.0.0.1:56789", "Connect to grpc endpoint.");
 DEFINE_int32(listen_ms, 1000, "Listen time in milliseconds");
 DEFINE_bool(detached, false, "Should detach all clients");
 
+DEFINE_int32(connections, 50, "Number of connections.");
+DEFINE_int32(calls, 10, "Number of calls per connection.");
+DEFINE_int32(messages, 40, "Number of messagesper call.");
+
 enum {
     COUNTER_PERIODS = 8,
 };
@@ -262,8 +266,9 @@ struct Client
     void Call()
     {
         thread_ = std::thread([this]{
+
           grpc::CompletionQueue cq;
-          for(auto i=0;i<10;i++) {
+          for(auto i=0;i<FLAGS_calls;i++) {
             grpc::ClientContext ctx;
 
             MySleep(1000);
@@ -313,7 +318,7 @@ struct Client
 
             MySleep(1000);
 
-            for( int i=0; i<40; i++) 
+            for( int i=0; i<FLAGS_messages; i++) 
             {
                 COUNTER("Client(3_Write).TOTAL");
                 rpc->Write( req, (void*) -3 );
@@ -410,29 +415,23 @@ struct Client
     }
 };
 
-int main( int argc, char* argv[] )
-{
+int main( int argc, char* argv[] ) {
     gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-    bool shouldConnect = (FLAGS_connect != ".");
-    bool shouldListen = (FLAGS_listen != ".");
-
-    std::vector<Client> clients;
-    int clientCount = 50;
-    clients.reserve(clientCount);
-    // Not really detached, just joining (Join2) them after we shutdown the server
-    int detachedClients = FLAGS_detached ? clientCount : 0;
-    if( shouldConnect )
-        for( auto clientIndex = 0; clientIndex < clientCount; clientIndex++ )
-            clients.emplace_back( FLAGS_connect, clientIndex );
-
     std::unique_ptr<BaseServer> server;
-    if( shouldListen )
+    if( !FLAGS_listen.empty() )
         server = std::unique_ptr<BaseServer>( new BaseServer( FLAGS_listen ) );
 
-    if( shouldConnect )
+    std::vector<Client> clients;
+    int clientCount = FLAGS_connections;
+    clients.reserve(clientCount);
+    int detachedClients = FLAGS_detached ? clientCount : 0;
+
+    if( !FLAGS_connect.empty() )
     {
         for( auto clientIndex = 0; clientIndex < clientCount; clientIndex++ )
+            clients.emplace_back( FLAGS_connect, clientIndex );
+       for( auto clientIndex = 0; clientIndex < clientCount; clientIndex++ )
             clients[clientIndex].Call();
         NextCounterPeriod();
         MySleep(10);
@@ -442,13 +441,13 @@ int main( int argc, char* argv[] )
         MySleep(10);
     }
 
-    if( shouldListen )
+    if( !FLAGS_listen.empty() )
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(FLAGS_listen_ms));
         server.reset();
     }
     
-    if( shouldConnect )
+    if( !FLAGS_connect.empty() )
     {
         NextCounterPeriod();
         MySleep(10);

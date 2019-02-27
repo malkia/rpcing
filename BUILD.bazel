@@ -79,9 +79,9 @@ genrule(
 
 py_binary(
     name = "py_bidi",
-    args = [ "$(location :bidi)" ],
+    args = [ "$(location :bidi)", "$(location :ken)" ],
     srcs = [ "py_bidi.py" ],
-    data = [ ":bidi" ],
+    data = [ ":bidi", ":ken" ],
     deps = ["@bazel_tools//tools/python/runfiles" ],
 )
 
