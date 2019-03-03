@@ -7,6 +7,8 @@ load("@build_bazel_rules_nodejs//:defs.bzl", "jasmine_node_test", "nodejs_binary
 load("@io_bazel_rules_rust//proto:proto.bzl", "rust_grpc_library")
 load("@io_bazel_rules_rust//rust:rust.bzl", "rust_binary")
 load("@io_bazel_rules_rust//proto:toolchain.bzl", RUST_GRPC_COMPILE_DEPS = "GRPC_COMPILE_DEPS")
+load("@io_bazel_rules_docker//go:image.bzl", "go_image")
+load("@io_bazel_rules_docker//cc:image.bzl", "cc_image")
 load(":lizard.bzl", "bask")
 #bask()
 
@@ -78,9 +80,37 @@ genrule(
 )
 
 py_binary(
-    name = "py_bidi",
+    name = "py_bidi_cc_server_cc_clients",
+    args = [ "$(location :bidi)", "$(location :bidi)" ],
+    srcs = [ "py_bidi.py" ],
+    main = "py_bidi.py",
+    data = [ ":bidi" ],
+    deps = ["@bazel_tools//tools/python/runfiles" ],
+)
+
+py_binary(
+    name = "py_bidi_go_server_go_clients",
+    args = [ "$(location :ken)", "$(location :ken)" ],
+    srcs = [ "py_bidi.py" ],
+    main = "py_bidi.py",
+    data = [ ":ken" ],
+    deps = ["@bazel_tools//tools/python/runfiles" ],
+)
+
+py_binary(
+    name = "py_bidi_cc_server_go_clients",
     args = [ "$(location :bidi)", "$(location :ken)" ],
     srcs = [ "py_bidi.py" ],
+    main = "py_bidi.py",
+    data = [ ":bidi", ":ken" ],
+    deps = ["@bazel_tools//tools/python/runfiles" ],
+)
+
+py_binary(
+    name = "py_bidi_go_server_cc_clients",
+    args = [ "$(location :ken)", "$(location :bidi)" ],
+    srcs = [ "py_bidi.py" ],
+    main = "py_bidi.py",
     data = [ ":bidi", ":ken" ],
     deps = ["@bazel_tools//tools/python/runfiles" ],
 )
@@ -126,6 +156,9 @@ go_binary(
         ":go_grpc",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//metadata:go_default_library",
+        "@org_golang_google_grpc//status:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
     ],
 )
 
@@ -148,4 +181,14 @@ rust_binary(
     name = "hook",
     srcs = ["hook.rs"],
     deps = [":rust_service_proto"] + RUST_GRPC_COMPILE_DEPS,
+)
+
+go_image(
+    name = "ken_image",
+    binary = ":ken",
+)
+
+cc_image(
+    name = "bidi_image",
+    binary = ":bidi",
 )

@@ -2,20 +2,14 @@ import subprocess, os, sys, subprocess
 
 from bazel_tools.tools.python.runfiles import runfiles
 
-cpp_binary_name = sys.argv[1].replace("./", "")
-cpp_binary = runfiles.Create().Rlocation( "rpcing/" + cpp_binary_name )
+server_binary_name = sys.argv[1].replace("./", "")
+server_binary = runfiles.Create().Rlocation( "rpcing/" + server_binary_name )
 
-golang_binary_name = sys.argv[2].replace("./", "")
-golang_binary = runfiles.Create().Rlocation( "rpcing/" + golang_binary_name )
+client_binary_name = sys.argv[2].replace("./", "")
+client_binary = runfiles.Create().Rlocation( "rpcing/" + client_binary_name )
 
-#server_binary = cpp_binary
-server_binary = golang_binary
-
-client_binary = cpp_binary
-#client_binary = golang_binary
-
-server = subprocess.Popen([server_binary, "--connect=", "--listen_ms=1000"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-clientCount = 5
+server = subprocess.Popen([server_binary, "--connect=", "--listen_ms=2000"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+clientCount = 3
 
 client_procs = []
 client_outs = []

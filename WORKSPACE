@@ -71,8 +71,11 @@ grpc_java_repositories(
 )
 
 # From https://github.com/bazelbuild/rules_closure/releases
-RULES_CLOSURE_VERSION="0.8.0"
-RULES_CLOSURE_SHA256="b29a8bc2cb10513c864cb1084d6f38613ef14a143797cea0af0f91cd385f5e8c"
+#RULES_CLOSURE_VERSION="0.8.0"
+#RULES_CLOSURE_SHA256="b29a8bc2cb10513c864cb1084d6f38613ef14a143797cea0af0f91cd385f5e8c"
+RULES_CLOSURE_VERSION="87d24b1df8b62405de8dd059cb604fd9d4b1e395"
+RULES_CLOSURE_SHA256="0e6de40666f2ebb2b30dc0339745a274d9999334a249b05a3b1f46462e489adf"
+
 http_archive(
     name = "io_bazel_rules_closure",
     strip_prefix = "rules_closure-" + RULES_CLOSURE_VERSION,
@@ -151,3 +154,56 @@ bazel_version(name = "bazel_version")
 load("@io_bazel_rules_rust//proto:repositories.bzl", "rust_proto_repositories")
 rust_proto_repositories()
 
+
+#############################
+
+
+# Download the rules_docker repository at release v0.7.0
+http_archive(
+    name = "io_bazel_rules_docker",
+    sha256 = "aed1c249d4ec8f703edddf35cbe9dfaca0b5f5ea6e4cd9e83e99f3b0d1136c3d",
+    strip_prefix = "rules_docker-0.7.0",
+    urls = ["https://github.com/bazelbuild/rules_docker/archive/v0.7.0.tar.gz"],
+)
+
+# OPTIONAL: Call this to override the default docker toolchain configuration.
+# This call should be placed BEFORE the call to "container_repositories" below
+# to actually override the default toolchain configuration.
+# Note this is only required if you actually want to call
+# docker_toolchain_configure with a custom attr; please read the toolchains
+# docs in /toolchains/docker/ before blindly adding this to your WORKSPACE.
+
+load("@io_bazel_rules_docker//toolchains/docker:toolchain.bzl",
+    docker_toolchain_configure="toolchain_configure"
+)
+docker_toolchain_configure(
+  name = "docker_config",
+  # OPTIONAL: Path to a directory which has a custom docker client config.json.
+  # See https://docs.docker.com/engine/reference/commandline/cli/#configuration-files
+  # for more details.
+  client_config="/path/to/docker/client/config",
+)
+
+# This is NOT needed when going through the language lang_image
+# "repositories" function(s).
+load(
+    "@io_bazel_rules_docker//repositories:repositories.bzl",
+    container_repositories = "repositories",
+)
+container_repositories()
+
+load("@io_bazel_rules_docker//container:container.bzl", "container_pull")
+
+container_pull(
+  name = "java_base",
+  registry = "gcr.io",
+  repository = "distroless/java",
+  # 'tag' is also supported, but digest is encouraged for reproducibility.
+  digest = "sha256:deadbeef",
+)
+
+load("@io_bazel_rules_docker//go:image.bzl", _go_image_repos = "repositories")
+_go_image_repos()
+
+load("@io_bazel_rules_docker//cc:image.bzl", _cc_image_repos = "repositories")
+_cc_image_repos()
