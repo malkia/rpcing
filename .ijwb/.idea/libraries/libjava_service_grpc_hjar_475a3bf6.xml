@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="libjava_service_grpc-hjar_475a3bf6">
-    <CLASSES>
-      <root url="jar://$USER_HOME$/.cache/bazel/_bazel_malkia/23ad8fd5043f61645c991460db946fc9/execroot/rpcing/bazel-out/k8-fastbuild/bin/libjava_service_grpc-hjar.jar!/" />
-    </CLASSES>
-    <JAVADOC />
-    <SOURCES />
-  </library>
-</component>

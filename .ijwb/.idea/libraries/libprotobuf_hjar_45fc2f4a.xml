@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="libprotobuf-hjar_45fc2f4a">
-    <CLASSES>
-      <root url="jar://$USER_HOME$/.cache/bazel/_bazel_malkia/23ad8fd5043f61645c991460db946fc9/execroot/rpcing/bazel-out/k8-fastbuild/bin/external/io_grpc_grpc_java/protobuf/libprotobuf-hjar.jar!/" />
-    </CLASSES>
-    <JAVADOC />
-    <SOURCES />
-  </library>
-</component>
