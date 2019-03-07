@@ -2,7 +2,7 @@
 <module external.system.id="Blaze" type="JAVA_MODULE" version="4">
   <component name="FacetManager">
     <facet type="Python" name="Python">
-      <configuration sdkName="" />
+      <configuration sdkName="Python 2.7" />
     </facet>
   </component>
   <component name="Go" enabled="true" />
@@ -19,10 +19,11 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="libcore-hjar_e2ce0ade" level="project" />
+    <orderEntry type="library" name="libprotobuf_java-hjar_a5307348" level="project" />
     <orderEntry type="library" name="libstub-hjar_e2d563ed" level="project" />
     <orderEntry type="library" name="libprotobuf-hjar_45fc2f4a" level="project" />
     <orderEntry type="library" name="libservice_proto-speed-hjar_475a3bf6" level="project" />
     <orderEntry type="library" name="libjava_service_grpc-hjar_475a3bf6" level="project" />
-    <orderEntry type="library" name="Bundled Protobuf Distribution" level="application" />
+    <orderEntry type="library" name="Python 2.7 interpreter library" level="application" />
   </component>
 </module>
