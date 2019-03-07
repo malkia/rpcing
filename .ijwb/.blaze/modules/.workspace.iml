@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<module external.system.id="Blaze" type="WEB_MODULE" version="4">
+<module external.system.id="Blaze" type="JAVA_MODULE" version="4">
+  <component name="FacetManager">
+    <facet type="Python" name="Python">
+      <configuration sdkName="" />
+    </facet>
+  </component>
   <component name="Go" enabled="true" />
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$/../../..">
-      <sourceFolder url="file://$MODULE_DIR$/../../.." isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../../.." isTestSource="false" packagePrefix="beam" />
       <excludeFolder url="file://$MODULE_DIR$/../.." />
       <excludeFolder url="file://$MODULE_DIR$/../../../bazel-bin" />
       <excludeFolder url="file://$MODULE_DIR$/../../../bazel-genfiles" />
@@ -13,5 +18,11 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="libcore-hjar_e2ce0ade" level="project" />
+    <orderEntry type="library" name="libstub-hjar_e2d563ed" level="project" />
+    <orderEntry type="library" name="libprotobuf-hjar_45fc2f4a" level="project" />
+    <orderEntry type="library" name="libservice_proto-speed-hjar_475a3bf6" level="project" />
+    <orderEntry type="library" name="libjava_service_grpc-hjar_475a3bf6" level="project" />
+    <orderEntry type="library" name="Bundled Protobuf Distribution" level="application" />
   </component>
 </module>

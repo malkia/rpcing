@@ -212,4 +212,17 @@ cc_image(
     binary = ":bidi",
 )
 
+java_binary(
+    name = "jim",
+    main_class = "beam.jim",
+    srcs = [ "jim.java" ],
+    deps = [ 
+        ":java_service_grpc",
+        ":java_service_proto",
+        "@io_grpc_grpc_java//core",
+        "@io_grpc_grpc_java//protobuf",
+        "@io_grpc_grpc_java//stub",
+    ]
+)
+
 #bask()

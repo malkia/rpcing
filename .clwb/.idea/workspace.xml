@@ -20,19 +20,7 @@
     </configurations>
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="553023a7-c892-4387-9490-950032ef6916" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/../.ijwb/.blaze/modules/.project-data-dir.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../.ijwb/.blaze/modules/.workspace.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../.ijwb/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/../.ijwb/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../BUILD.bazel" beforeDir="false" afterPath="$PROJECT_DIR$/../BUILD.bazel" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../WORKSPACE" beforeDir="false" afterPath="$PROJECT_DIR$/../WORKSPACE" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../bidi.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/../bidi.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../ken.go" beforeDir="false" afterPath="$PROJECT_DIR$/../ken.go" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../lizard.bzl" beforeDir="false" afterPath="$PROJECT_DIR$/../lizard.bzl" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../py_bidi.py" beforeDir="false" afterPath="$PROJECT_DIR$/../py_bidi.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../service.proto" beforeDir="false" afterPath="$PROJECT_DIR$/../service.proto" afterDir="false" />
-    </list>
+    <list default="true" id="553023a7-c892-4387-9490-950032ef6916" name="Default Changelist" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -158,6 +146,7 @@
       <find>Rad</find>
       <find>Read</find>
       <find>localpath</find>
+      <find>set_request</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -199,6 +188,11 @@
             <path>
               <item name="rpcing" type="b2602c69:ProjectViewProjectNode" />
               <item name="rpcing" type="34d14456:WorkspaceRootNode" />
+            </path>
+            <path>
+              <item name="rpcing" type="b2602c69:ProjectViewProjectNode" />
+              <item name="rpcing" type="34d14456:WorkspaceRootNode" />
+              <item name=".clwb" type="81dbbfc7:BlazePsiDirectoryNode" />
             </path>
           </expand>
           <select />
@@ -327,16 +321,15 @@
       <workItem from="1549952736395" duration="780000" />
       <workItem from="1551767813516" duration="910000" />
       <workItem from="1551768778638" duration="7380000" />
-      <workItem from="1551930469046" duration="1981000" />
+      <workItem from="1551930469046" duration="2684000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="14643000" />
+    <option name="totallyTimeSpent" value="15346000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="32" width="3000" height="1936" extended-state="0" />
-    <editor active="true" />
     <layout>
       <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.16267942" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />

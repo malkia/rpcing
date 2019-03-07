@@ -73,7 +73,6 @@ go_rules_dependencies()
 go_register_toolchains()
 
 GRPC_JAVA_VERSION = GRPC_VERSION
-
 GRPC_JAVA_SHA256 = "0b86e44f9530fd61eb044b3c64c7579f21857ba96bcd9434046fd22891483a6d"
 
 http_archive(
