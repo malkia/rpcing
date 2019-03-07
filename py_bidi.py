@@ -2,10 +2,13 @@ import subprocess, os, sys, subprocess
 
 from bazel_tools.tools.python.runfiles import runfiles
 
-server_binary_name = sys.argv[1].replace("./", "")
+repository_name = sys.argv[1]
+print("repository_name=", repository_name)
+
+server_binary_name = sys.argv[2].replace("./", "")
 server_binary = runfiles.Create().Rlocation( "rpcing/" + server_binary_name )
 
-client_binary_name = sys.argv[2].replace("./", "")
+client_binary_name = sys.argv[3].replace("./", "")
 client_binary = runfiles.Create().Rlocation( "rpcing/" + client_binary_name )
 
 server = subprocess.Popen([server_binary, "--connect=", "--listen_ms=2000"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)

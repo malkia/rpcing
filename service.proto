@@ -4,14 +4,28 @@ package service;
 
 option cc_enable_arenas = true;
 
+message ImplementationDetails {
+  enum ProgrammingLanguage {
+    UNKNOWN = 0;
+    CC = 1;
+    GO = 2;
+  }
+  ProgrammingLanguage programming_language = 1;
+}
+
 message CommandRequest {
   fixed64 command_id = 1;
-  //string command = 1;
+  fixed32 connection_index = 2;
+  fixed32 call_index = 3;
+  fixed32 message_index = 4;
+  fixed64 random_number = 5;
+  ImplementationDetails implementation_details = 6;
 }
 
 message CommandResponse {
   fixed64 result_id = 1;
-  //string result = 1;
+  CommandRequest request = 2;
+  ImplementationDetails implementation_details = 3;
 }
 
 service MainControl {

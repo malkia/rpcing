@@ -10,7 +10,6 @@ load("@io_bazel_rules_rust//proto:toolchain.bzl", RUST_GRPC_COMPILE_DEPS = "GRPC
 load("@io_bazel_rules_docker//go:image.bzl", "go_image")
 load("@io_bazel_rules_docker//cc:image.bzl", "cc_image")
 load(":lizard.bzl", "bask")
-#bask()
 
 proto_library(
     name = "service_proto",
@@ -67,8 +66,8 @@ cc_binary(
     srcs = ["bidi.cpp"],
     deps = [
         ":service_grpc_proto",
-        "@com_github_grpc_grpc//:grpc++",
         "@com_github_gflags_gflags//:gflags",
+        "@com_github_grpc_grpc//:grpc++",
     ],
 )
 
@@ -76,55 +75,77 @@ genrule(
     name = "bidi2bidi_data",
     outs = ["bidi2bidi.txt"],
     cmd = "echo -n $(execpath :bidi)>$@",
-    tools = [ ":bidi" ]
+    tools = [":bidi"],
 )
 
 py_binary(
     name = "py_bidi_cc_server_cc_clients",
-    args = [ "$(location :bidi)", "$(location :bidi)" ],
-    srcs = [ "py_bidi.py" ],
+    srcs = ["py_bidi.py"],
+    args = [
+        repository_name(),
+        "$(location :bidi)",
+        "$(location :bidi)",
+    ],
+    data = [":bidi"],
     main = "py_bidi.py",
-    data = [ ":bidi" ],
-    deps = ["@bazel_tools//tools/python/runfiles" ],
+    deps = ["@bazel_tools//tools/python/runfiles"],
 )
 
 py_binary(
     name = "py_bidi_go_server_go_clients",
-    args = [ "$(location :ken)", "$(location :ken)" ],
-    srcs = [ "py_bidi.py" ],
+    srcs = ["py_bidi.py"],
+    args = [
+        repository_name(),
+        "$(location :ken)",
+        "$(location :ken)",
+    ],
+    data = [":ken"],
     main = "py_bidi.py",
-    data = [ ":ken" ],
-    deps = ["@bazel_tools//tools/python/runfiles" ],
+    deps = ["@bazel_tools//tools/python/runfiles"],
 )
 
 py_binary(
     name = "py_bidi_cc_server_go_clients",
-    args = [ "$(location :bidi)", "$(location :ken)" ],
-    srcs = [ "py_bidi.py" ],
+    srcs = ["py_bidi.py"],
+    args = [
+        repository_name(),
+        "$(location :bidi)",
+        "$(location :ken)",
+    ],
+    data = [
+        ":bidi",
+        ":ken",
+    ],
     main = "py_bidi.py",
-    data = [ ":bidi", ":ken" ],
-    deps = ["@bazel_tools//tools/python/runfiles" ],
+    deps = ["@bazel_tools//tools/python/runfiles"],
 )
 
 py_binary(
     name = "py_bidi_go_server_cc_clients",
-    args = [ "$(location :ken)", "$(location :bidi)" ],
-    srcs = [ "py_bidi.py" ],
+    srcs = ["py_bidi.py"],
+    args = [
+        repository_name(),
+        "$(location :ken)",
+        "$(location :bidi)",
+    ],
+    data = [
+        ":bidi",
+        ":ken",
+    ],
     main = "py_bidi.py",
-    data = [ ":bidi", ":ken" ],
-    deps = ["@bazel_tools//tools/python/runfiles" ],
+    deps = ["@bazel_tools//tools/python/runfiles"],
 )
 
 sh_binary(
     name = "bidi2bidi",
-    args = [ 
-        "$(execpath :bidi2bidi_data)" ,
-        "$(location :bidi2bidi_data)", 
-        "$(rootpath :bidi2bidi_data)" ,
+    srcs = ["bidi2bidi.sh"],
+    args = [
+        "$(execpath :bidi2bidi_data)",
+        "$(location :bidi2bidi_data)",
+        "$(rootpath :bidi2bidi_data)",
     ],
-    data = [ ":bidi2bidi_data" ],
-    srcs = [ "bidi2bidi.sh" ],
-    deps = [ "@bazel_tools//tools/bash/runfiles" ]
+    data = [":bidi2bidi_data"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 py_binary(
@@ -156,9 +177,9 @@ go_binary(
         ":go_grpc",
         "@com_github_golang_protobuf//proto:go_default_library",
         "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//codes:go_default_library",
         "@org_golang_google_grpc//metadata:go_default_library",
         "@org_golang_google_grpc//status:go_default_library",
-        "@org_golang_google_grpc//codes:go_default_library",
     ],
 )
 
@@ -169,8 +190,6 @@ go_proto_library(
     proto = ":service_proto",
     #protos = [ ":service_proto" ],
 )
-
-#bask()
 
 rust_grpc_library(
     name = "rust_service_proto",
@@ -192,3 +211,5 @@ cc_image(
     name = "bidi_image",
     binary = ":bidi",
 )
+
+#bask()

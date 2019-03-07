@@ -111,8 +111,6 @@ func (s *serverService) CommandStreamIn(stream service.MainControl_CommandStream
 }
 
 func (s *serverService) CommandStream(stream service.MainControl_CommandStreamServer) error {
-	y := service.CommandResponse{}
-
 	defer func() {
 		trailer := metadata.Pairs("malkiaHeader", "malkiaValue")
 		atomic.AddInt32(&counters.serverSetTrailerCount, 1)
@@ -135,7 +133,7 @@ func (s *serverService) CommandStream(stream service.MainControl_CommandStreamSe
 	for {
 
 		atomic.AddInt32(&counters.serverRecvTotal, 1)
-		_, e := stream.Recv()
+		commandRequest, e := stream.Recv()
 		if e == io.EOF {
 			atomic.AddInt32(&counters.serverRecvEOF, 1)
 			return nil
@@ -145,12 +143,16 @@ func (s *serverService) CommandStream(stream service.MainControl_CommandStreamSe
 			return e
 		}
 
+		commandResponse := service.CommandResponse{
+			Request: commandRequest,
+		}
 		atomic.AddInt32(&counters.serverSendTotal, 1)
-		if e := stream.Send(&y); e != nil {
+		if e := stream.Send(&commandResponse); e != nil {
 			atomic.AddInt32(&counters.serverSendFailed, 1)
 			return e
 		}
 	}
+
 	return nil
 }
 
@@ -209,7 +211,6 @@ func main() {
 			//log.Printf("client: channel %v", clientIndex)
 			go func() {
 				//log.Printf("client(gofunc): channel %v %v", clientIndex, index2)
-				commandRequest := service.CommandRequest{}
 				for callIndex := int(0); callIndex < *calls; callIndex++ {
 					// https://godoc.org/google.golang.org/grpc#ClientConn.NewStream
 					/*
@@ -249,6 +250,11 @@ func main() {
 					//var recvError error
 
 					for messageIndex := int(0); messageIndex < *messages; messageIndex++ {
+						commandRequest := service.CommandRequest{
+							ConnectionIndex: uint32(clientIndex),
+							CallIndex: uint32(callIndex),
+							MessageIndex: uint32(messageIndex),
+						}
 						atomic.AddInt32(&counters.clientSendTotal, 1)
 						sendError = stream.Send(&commandRequest)
 						if headerEOF && sendError != io.EOF {
@@ -262,7 +268,7 @@ func main() {
 						}
 
 						atomic.AddInt32(&counters.clientRecvTotal, 1)
-						_, e := stream.Recv()
+						commandResponse, e := stream.Recv()
 						if e != nil {
 							//recvError = e
 							if e == io.EOF {
@@ -271,6 +277,10 @@ func main() {
 								atomic.AddInt32(&counters.clientRecvFailed, 1)
 								break
 							}
+						}
+
+						if( commandResponse.Request.ConnectionIndex != commandRequest.ConnectionIndex ) {
+							log.Fatal("Error");
 						}
 					}
 

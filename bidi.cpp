@@ -63,7 +63,7 @@ void NextCounterPeriod()
 
 static void MySleep(int amount)
 {
-//      std::this_thread::sleep_for(std::chrono::milliseconds(rand()%10==0?1:0));
+//    std::this_thread::sleep_for(std::chrono::milliseconds(rand()%10==0?1:0));
 //    std::this_thread::sleep_for(std::chrono::milliseconds(rand()%5));
 //    std::this_thread::sleep_for(std::chrono::milliseconds(rand()%(1+rand()%(rand()%(amount/10+1)+1))));
 }
@@ -129,18 +129,20 @@ public:
             stream_.SendInitialMetadata( this );
             break;
 
-        case State::READ:
+        case State::READ: {
             COUNTER("CallData::Next(2_READ)");
             state_ = State::WRITE;
             MySleep(500);
-            stream_.Read( &request_, this );
+            stream_.Read(&request_, this);
             break;
+        }
   
         case State::WRITE:
             COUNTER("CallData::Next(3_WRITE)");
             state_ = State::READ;
             {
                 service::CommandResponse response;
+                response.set_allocated_request(new service::CommandRequest(request_));
                 MySleep(500);
                 stream_.Write( response, this );
             }
@@ -251,9 +253,9 @@ struct Client
     std::thread thread_;
     std::shared_ptr<grpc::Channel> channel_;
     std::unique_ptr<service::MainControl::Stub> stub_;
-    int index_;
+    uint32_t index_;
 
-    explicit Client( const std::string& addr, int index )
+    explicit Client( const std::string& addr, uint32_t index )
         : addr_(addr), index_(index)
     {
         grpc::ChannelArguments channelArguments;
@@ -266,9 +268,15 @@ struct Client
     void Call()
     {
         thread_ = std::thread([this]{
+            auto callCount = FLAGS_calls;
+            auto messageCount = FLAGS_messages;
+
+            service::CommandRequest req;
+            req.mutable_implementation_details()->set_programming_language( service::ImplementationDetails_ProgrammingLanguage_CC );
+            req.set_connection_index(index_);
 
           grpc::CompletionQueue cq;
-          for(auto i=0;i<FLAGS_calls;i++) {
+          for(uint32_t callIndex=0;callIndex<callCount;callIndex++) {
             grpc::ClientContext ctx;
 
             MySleep(1000);
@@ -313,13 +321,15 @@ struct Client
                 return;
             }
             
-            service::CommandRequest req;
             service::CommandResponse resp;
 
             MySleep(1000);
 
-            for( int i=0; i<FLAGS_messages; i++) 
+            req.set_call_index(callIndex);
+
+            for( uint32_t messageIndex=0; messageIndex<messageCount; messageIndex++)
             {
+                req.set_message_index(messageIndex);
                 COUNTER("Client(3_Write).TOTAL");
                 rpc->Write( req, (void*) -3 );
                 tag = (void*) 3;
@@ -352,6 +362,17 @@ struct Client
                 {
                     COUNTER("Client(4_Read).NOT_OK");
                     return;
+                }
+
+                auto respConnectionIndex = resp.request().connection_index();
+                auto respCallIndex = resp.request().call_index();
+                auto respMessageIndex = resp.request().message_index();
+
+                if( respConnectionIndex != index_
+                ||  respCallIndex != callIndex
+                ||  respMessageIndex != messageIndex )
+                {
+                    printf( " ERROR: resp=[%d %d %d], expecting=[%d %d %d]\n", respConnectionIndex, respCallIndex, respMessageIndex, index_, callIndex, messageIndex );
                 }
 
                 MySleep(1000/40);  
