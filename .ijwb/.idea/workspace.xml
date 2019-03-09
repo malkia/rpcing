@@ -10,7 +10,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="1d48086a-41c0-4440-986d-91ff9c83f210" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.blaze/modules/.workspace.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.blaze/modules/.workspace.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../jim.java" beforeDir="false" afterPath="$PROJECT_DIR$/../jim.java" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -36,7 +36,10 @@
         <entry file="file://$PROJECT_DIR$/../jim.java">
           <provider selected="true" editor-type-id="text-editor">
             <state relative-caret-position="325">
-              <caret line="13" column="1" lean-forward="true" selection-start-line="13" selection-start-column="1" selection-end-line="13" selection-end-column="1" />
+              <caret line="13" lean-forward="true" selection-start-line="13" selection-end-line="13" />
+              <folding>
+                <element signature="imports" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -111,8 +114,8 @@
   </component>
   <component name="ProjectFrameBounds">
     <option name="y" value="32" />
-    <option name="width" value="3000" />
-    <option name="height" value="1936" />
+    <option name="width" value="2666" />
+    <option name="height" value="1712" />
   </component>
   <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectView">
@@ -185,18 +188,17 @@
       <option name="presentableId" value="Default" />
       <updated>1551969087566</updated>
       <workItem from="1551969097003" duration="451000" />
-      <workItem from="1551969641100" duration="1186000" />
+      <workItem from="1551969641100" duration="2989000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="1637000" />
+    <option name="totallyTimeSpent" value="3440000" />
   </component>
   <component name="ToolWindowManager">
-    <frame x="0" y="32" width="3000" height="1936" extended-state="0" />
-    <editor active="true" />
+    <frame x="0" y="32" width="2666" height="1712" extended-state="0" />
     <layout>
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.25495556" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.23842593" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info id="Designer" order="3" />
@@ -206,7 +208,7 @@
       <window_info id="Learn" order="7" />
       <window_info anchor="bottom" id="Message" order="0" />
       <window_info anchor="bottom" id="Find" order="1" />
-      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.49965823" visible="true" weight="0.32956472" />
+      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.4996142" weight="0.37734628" />
       <window_info anchor="bottom" id="Debug" order="3" weight="0.4" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
@@ -214,7 +216,7 @@
       <window_info anchor="bottom" id="Docker" order="7" show_stripe_button="false" />
       <window_info anchor="bottom" id="Version Control" order="8" />
       <window_info anchor="bottom" id="Database Changes" order="9" />
-      <window_info active="true" anchor="bottom" id="Blaze Console" order="10" sideWeight="0.5003418" side_tool="true" visible="true" weight="0.32956472" />
+      <window_info active="true" anchor="bottom" id="Blaze Console" order="10" sideWeight="0.5003858" side_tool="true" visible="true" weight="0.32944983" />
       <window_info anchor="bottom" id="Terminal" order="11" />
       <window_info anchor="bottom" id="Event Log" order="12" side_tool="true" />
       <window_info anchor="bottom" id="Blaze Problems" order="13" sideWeight="0.49931648" weight="0.32956472" />
@@ -281,7 +283,10 @@
     <entry file="file://$PROJECT_DIR$/../jim.java">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="325">
-          <caret line="13" column="1" lean-forward="true" selection-start-line="13" selection-start-column="1" selection-end-line="13" selection-end-column="1" />
+          <caret line="13" lean-forward="true" selection-start-line="13" selection-end-line="13" />
+          <folding>
+            <element signature="imports" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
